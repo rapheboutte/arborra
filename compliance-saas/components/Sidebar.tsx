@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Home, CheckSquare, FileText, BarChart2, Bell, Settings } from 'lucide-react';
 
 const navItems = [
-  { name: 'Compliance Status', href: '/', icon: Home },
+  { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Task Manager', href: '/tasks', icon: CheckSquare },
   { name: 'Document Center', href: '/documents', icon: FileText },
   { name: 'Reports Generator', href: '/reports', icon: BarChart2 },

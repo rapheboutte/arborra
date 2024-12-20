@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Activity, CheckCircle, Clock } from 'lucide-react';
 import { useState } from 'react';
+import { Button } from "@/components/ui/button";
 
 const mockData = {
   complianceScore: 85,
@@ -31,6 +32,8 @@ const notifications = [
   { message: 'HIPAA training certificates expiring soon', type: 'warning' },
 ];
 
+const companyName = "Jane's Retail Store";
+
 export default function Dashboard() {
   const [data, setData] = useState(mockData);
   const [docs, setDocs] = useState(documents);
@@ -50,11 +53,57 @@ export default function Dashboard() {
     future: 'bg-green-500',
   };
 
+  const [selectedReport, setSelectedReport] = useState('GDPR Audit Report');
+
+  const reportTypes = [
+    'GDPR Audit Report',
+    'HIPAA Compliance Summary',
+    'OSHA Safety Audit',
+  ];
+
+  const [reportSections, setReportSections] = useState([
+    'Completed Tasks',
+    'Stored Documents',
+    'Compliance Progress',
+  ]);
+
+  const toggleSection = (section) => {
+    setReportSections((prevSections) =>
+      prevSections.includes(section)
+        ? prevSections.filter((s) => s !== section)
+        : [...prevSections, section]
+    );
+  };
+
+  const exportReport = (format) => {
+    alert(`Report exported as ${format}!`);
+  };
+
+  const generateReport = () => {
+    alert('Report generated successfully!');
+  };
+
+  const [selectedTemplate, setSelectedTemplate] = useState('GDPR Audit Report');
+
+  const templates = [
+    'GDPR Audit Report',
+    'HIPAA Compliance Summary',
+    'OSHA Safety Audit',
+  ];
+
+  const generateTemplateReport = () => {
+    alert(`Generating ${selectedTemplate}...`);
+  };
+
+  const recommendations = [
+    { tip: 'Update your privacy policy to reflect new GDPR changes.', action: 'Learn More' },
+    { tip: 'You may be non-compliant with OSHA workplace safety standards.', action: 'Check Now' },
+  ];
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Dashboard Overview</h1>
+      <h1 className="text-3xl font-bold mb-6">Welcome, {companyName}</h1>
 
-      {/* Compliance Status */}
       <Card className="mb-8 p-6">
         <CardHeader>
           <CardTitle>Compliance Health Score</CardTitle>
@@ -78,7 +127,12 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Task Manager */}
+      <div className="flex space-x-4 mb-8">
+        <Button>Add a Task</Button>
+        <Button>Upload a Document</Button>
+        <Button>Generate Report</Button>
+      </div>
+
       <Card className="mb-8 p-6">
         <CardHeader>
           <CardTitle>Task List</CardTitle>
@@ -95,7 +149,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Document Repository */}
       <Card className="mb-8 p-6">
         <CardHeader>
           <CardTitle>Document Center</CardTitle>
@@ -112,7 +165,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Notifications Panel */}
       <Card className="mb-8 p-6">
         <CardHeader>
           <CardTitle>Notifications Panel</CardTitle>
@@ -127,132 +179,6 @@ export default function Dashboard() {
           </ul>
         </CardContent>
       </Card>
-
-      {/* Reports Generator */}
-      <Card className="mb-8 p-6">
-        <CardHeader>
-          <CardTitle>Reports Generator</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <button className="text-blue-500">Generate Report</button>
-        </CardContent>
-      </Card>
-
-      {/* Guided Recommendations */}
-      <Card className="mb-8 p-6">
-        <CardHeader>
-          <CardTitle>Guided Recommendations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>Get tips and prompts for staying compliant.</p>
-        </CardContent>
-      </Card>
-
-      {/* Training and Updates */}
-      <Card className="mb-8 p-6">
-        <CardHeader>
-          <CardTitle>Training and Updates</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>Access training modules and updates on regulations.</p>
-        </CardContent>
-      </Card>
-
-      {/* Industry-Specific Insights */}
-      <Card className="mb-8 p-6">
-        <CardHeader>
-          <CardTitle>Industry-Specific Insights</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>Receive personalized compliance tasks and templates.</p>
-        </CardContent>
-      </Card>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tasks Due Today</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">5</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">3</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Deadlines</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">7</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Calendar and Task List */}
-      <Card className="mb-8 p-6">
-        <CardHeader>
-          <CardTitle>Task Deadlines</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex">
-            <div className="w-1/2">
-              <Calendar
-                modifiers={modifiers}
-                modifierClassNames={modifierClassNames}
-              />
-            </div>
-            <div className="w-1/2 overflow-x-auto pl-0">
-              <table className="min-w-full bg-white">
-                <thead>
-                  <tr>
-                    <th className="py-2 px-4 border-b"></th>
-                    <th className="py-2 px-4 border-b">Task Name</th>
-                    <th className="py-2 px-4 border-b">Deadline</th>
-                    <th className="py-2 px-4 border-b">Recurrence</th>
-                    <th className="py-2 px-4 border-b">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="py-2 px-4 border-b"><span className="inline-block w-3 h-3 bg-red-500 rounded-full"></span></td>
-                    <td className="py-2 px-4 border-b">Update privacy policy</td>
-                    <td className="py-2 px-4 border-b">2023-07-15</td>
-                    <td className="py-2 px-4 border-b">Monthly</td>
-                    <td className="py-2 px-4 border-b">In Progress</td>
-                  </tr>
-                  <tr className="bg-gray-100">
-                    <td className="py-2 px-4 border-b"><span className="inline-block w-3 h-3 bg-yellow-500 rounded-full"></span></td>
-                    <td className="py-2 px-4 border-b">Conduct security audit</td>
-                    <td className="py-2 px-4 border-b">2023-08-01</td>
-                    <td className="py-2 px-4 border-b">Quarterly</td>
-                    <td className="py-2 px-4 border-b">Not Started</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-4 border-b"><span className="inline-block w-3 h-3 bg-green-500 rounded-full"></span></td>
-                    <td className="py-2 px-4 border-b">Review data retention policies</td>
-                    <td className="py-2 px-4 border-b">2023-06-30</td>
-                    <td className="py-2 px-4 border-b">Annually</td>
-                    <td className="py-2 px-4 border-b">Completed</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
     </div>
   );
 }

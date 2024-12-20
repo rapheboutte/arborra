@@ -20,6 +20,18 @@ const data = [
 export default function ComplianceReporting() {
   const [category, setCategory] = useState('')
   const [dateRange, setDateRange] = useState('')
+  const [selectedTemplate, setSelectedTemplate] = useState('GDPR Audit Report')
+  const [sections, setSections] = useState([])
+
+  const templates = [
+    'GDPR Audit Report',
+    'HIPAA Compliance Summary',
+    'OSHA Safety Audit',
+  ];
+
+  const generateTemplateReport = () => {
+    alert(`Generating ${selectedTemplate}...`);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -62,27 +74,56 @@ export default function ComplianceReporting() {
 
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Compliance Task Status</CardTitle>
+          <CardTitle>Report Customization</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="completed" fill="#4CAF50" />
-              <Bar dataKey="pending" fill="#FFC107" />
-              <Bar dataKey="overdue" fill="#F44336" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="flex space-x-4">
+            <div className="grid w-full max-w-sm items-center gap-1.5">
+              <Label htmlFor="templateType">Select Report Template</Label>
+              <Select onValueChange={setSelectedTemplate}>
+                <SelectTrigger id="templateType">
+                  <SelectValue placeholder="Select template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template} value={template}>{template}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid w-full max-w-sm items-center gap-1.5">
+              <Label htmlFor="sections">Include Sections</Label>
+              <Select multiple onValueChange={setSections}>
+                <SelectTrigger id="sections">
+                  <SelectValue placeholder="Select sections" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="training">Training Records</SelectItem>
+                  <SelectItem value="policy">Policy Updates</SelectItem>
+                  <SelectItem value="audit">Audit Logs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <Button className="mt-4" onClick={generateTemplateReport}>Run Report</Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Report Preview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Real-time preview of the report will be displayed here...</p>
         </CardContent>
       </Card>
 
       <div className="flex justify-end space-x-4">
         <Button variant="outline">
           Export as PDF
+        </Button>
+        <Button variant="outline">
+          Export as Excel
         </Button>
         <Button>
           Email Report
@@ -91,4 +132,3 @@ export default function ComplianceReporting() {
     </div>
   )
 }
-
