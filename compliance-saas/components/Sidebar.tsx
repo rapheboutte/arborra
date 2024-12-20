@@ -1,20 +1,20 @@
 "use client"
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Home, CheckSquare, FileText, BarChart2, Bell, Settings, LogOut } from 'lucide-react'
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Home, CheckSquare, FileText, BarChart2, Bell, Settings } from 'lucide-react';
 
 const navItems = [
-  { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Tasks', href: '/tasks', icon: CheckSquare },
-  { name: 'Documents', href: '/documents', icon: FileText },
-  { name: 'Reports', href: '/reports', icon: BarChart2 },
-  { name: 'Notifications', href: '/notifications', icon: Bell },
+  { name: 'Compliance Status', href: '/', icon: Home },
+  { name: 'Task Manager', href: '/tasks', icon: CheckSquare },
+  { name: 'Document Center', href: '/documents', icon: FileText },
+  { name: 'Reports Generator', href: '/reports', icon: BarChart2 },
+  { name: 'Notifications Panel', href: '/notifications', icon: Bell },
   { name: 'Settings', href: '/settings', icon: Settings },
-]
+];
 
 export function Sidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <div className="bg-white w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition duration-200 ease-in-out">
@@ -39,5 +39,5 @@ export function Sidebar() {
         ))}
       </nav>
     </div>
-  )
+  );
 }

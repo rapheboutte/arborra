@@ -30,12 +30,29 @@ export default function TaskManagement() {
   const [taskDeadline, setTaskDeadline] = useState('')
   const [taskRecurrence, setTaskRecurrence] = useState('')
   const [taskDescription, setTaskDescription] = useState('')
+  const [taskList, setTaskList] = useState(tasks)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle task creation logic here
-    console.log('New task:', { taskName, taskDeadline, taskRecurrence, taskDescription })
+    const newTask = {
+      id: taskList.length + 1,
+      name: taskName,
+      deadline: taskDeadline,
+      recurrence: taskRecurrence,
+      status: "Not Started",
+      description: taskDescription,
+    }
+    setTaskList([...taskList, newTask])
     setIsDialogOpen(false)
+    setTaskName('')
+    setTaskDeadline('')
+    setTaskRecurrence('')
+    setTaskDescription('')
+  }
+
+  const handleEdit = (id: number) => {
+    // Implement edit logic here
+    console.log('Edit task with id:', id)
   }
 
   return (
@@ -82,16 +99,16 @@ export default function TaskManagement() {
                   <Label htmlFor="recurrence" className="text-right">
                     Recurrence
                   </Label>
-                  <Select onValueChange={setTaskRecurrence}>
-                    <SelectTrigger className="col-span-3">
+                  <Select onValueChange={setTaskRecurrence} className="col-span-3">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select recurrence" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="once">Once</SelectItem>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="annually">Annually</SelectItem>
+                      <SelectItem value="Daily">Daily</SelectItem>
+                      <SelectItem value="Weekly">Weekly</SelectItem>
+                      <SelectItem value="Monthly">Monthly</SelectItem>
+                      <SelectItem value="Quarterly">Quarterly</SelectItem>
+                      <SelectItem value="Annually">Annually</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -108,7 +125,7 @@ export default function TaskManagement() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Save Task</Button>
+                <Button type="submit">Save</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -126,15 +143,14 @@ export default function TaskManagement() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {tasks.map((task) => (
+          {taskList.map((task) => (
             <TableRow key={task.id}>
               <TableCell>{task.name}</TableCell>
               <TableCell>{task.deadline}</TableCell>
               <TableCell>{task.recurrence}</TableCell>
               <TableCell>{task.status}</TableCell>
               <TableCell>
-                <Button variant="outline" className="mr-2">Edit</Button>
-                <Button variant="destructive">Delete</Button>
+                <Button onClick={() => handleEdit(task.id)}>Edit</Button>
               </TableCell>
             </TableRow>
           ))}
@@ -143,4 +159,3 @@ export default function TaskManagement() {
     </div>
   )
 }
-
