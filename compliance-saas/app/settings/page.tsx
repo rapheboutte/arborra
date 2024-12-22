@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
+import RBAC from '../rbac'
 
 export default function ProfileSettings() {
   const [name, setName] = useState('John Doe')
@@ -120,7 +121,14 @@ export default function ProfileSettings() {
           </Card>
         </TabsContent>
       </Tabs>
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Role-Based Access Control</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RBAC />
+        </CardContent>
+      </Card>
     </div>
   )
 }
-

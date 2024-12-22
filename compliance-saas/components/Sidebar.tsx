@@ -11,6 +11,8 @@ const navItems = [
   { name: 'Reports Generator', href: '/reports', icon: BarChart2 },
   { name: 'Notifications Panel', href: '/notifications', icon: Bell },
   { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Compliance Knowledge Base', href: '/knowledgeBase', icon: FileText },
+  { name: 'Compliance Calendar', href: '/calendar', icon: BarChart2 },
 ];
 
 export function Sidebar() {

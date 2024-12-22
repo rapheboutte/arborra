@@ -18,19 +18,20 @@ const mockData = {
     { message: 'Audit report due in 3 days', type: 'info' },
   ],
   tasks: [
-    { name: 'Complete Employee HIPAA Training', dueDate: '2024-12-25', priority: 'High', status: 'Pending' },
-    { name: 'Submit Quarterly Safety Report', dueDate: '2024-12-30', priority: 'Low', status: 'Pending' },
+    { name: 'Complete Employee HIPAA Training', dueDate: '2024-12-25', priority: 'High', status: 'Pending', recurring: false, relatedRegulation: 'HIPAA' },
+    { name: 'Submit Quarterly Safety Report', dueDate: '2024-12-30', priority: 'Low', status: 'Pending', recurring: false, relatedRegulation: 'OSHA' },
+    { name: 'Conduct Annual Compliance Review', dueDate: '2025-01-15', priority: 'High', status: 'Pending', recurring: true, relatedRegulation: 'GDPR' },
   ],
 };
 
 const documents = [
-  { name: 'Privacy Policy', category: 'Legal', date: '2024-01-15' },
-  { name: 'Safety Training Certificate', category: 'Training', date: '2024-02-10' },
+  { name: 'Privacy Policy', category: 'Legal', date: '2024-01-15', status: 'Updated' },
+  { name: 'Safety Training Certificate', category: 'Training', date: '2024-02-10', status: 'Expiring Soon' },
 ];
 
 const notifications = [
-  { message: 'Data Protection Policy Update due in 5 days', type: 'info' },
-  { message: 'HIPAA training certificates expiring soon', type: 'warning' },
+  { message: 'Data Protection Policy Update due in 5 days', type: 'important' },
+  { message: 'HIPAA training certificates expiring soon', type: 'critical' },
 ];
 
 const companyName = "Jane's Retail Store";
@@ -107,83 +108,156 @@ const Dashboard = () => {
     if (!router) return;
   }, [router]);
 
+  const dismissNotification = (index) => {
+    setNotifs(notifs.filter((notif, i) => i !== index));
+  };
+
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const onboardingSteps = [
+    'Welcome to Arborra! Let’s start by adding your first compliance task.',
+    'Great! Now, upload a compliance document to the Document Center.',
+    'Finally, configure your notification settings to stay informed.',
+  ];
+
+  const nextStep = () => {
+    setOnboardingStep((prevStep) => Math.min(prevStep + 1, onboardingSteps.length - 1));
+  };
+
+  const prevStep = () => {
+    setOnboardingStep((prevStep) => Math.max(prevStep - 1, 0));
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Welcome, {companyName}</h1>
+    <div className="container mx-auto px-6 py-8">
+      {onboardingStep < onboardingSteps.length && (
+        <div className="fixed bottom-4 right-4 bg-white p-4 shadow-lg rounded-lg">
+          <p>{onboardingSteps[onboardingStep]}</p>
+          <div className="flex justify-between mt-2">
+            <button onClick={prevStep} className="text-blue-600 hover:underline">Back</button>
+            <button onClick={nextStep} className="text-blue-600 hover:underline">Next</button>
+          </div>
+        </div>
+      )}
+      <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
+        <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${((onboardingStep + 1) / onboardingSteps.length) * 100}%` }}></div>
+      </div>
+      <h1 className="text-3xl font-bold mb-8">Welcome, {companyName}</h1>
+      <Card className="mb-8 p-6 bg-gray-100">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Compliance Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-between items-center">
+            <div className="text-4xl font-extrabold text-blue-600" title="Calculated based on completed tasks and document compliance">{data.complianceScore}%</div>
+            <Button className="bg-green-500 hover:bg-green-600 text-white">View Details</Button>
+          </div>
+          <div className="mt-4">
+            {data.regulations.map((regulation, index) => (
+              <div key={index} className="flex justify-between items-center mb-2">
+                <span className="font-semibold" title={`Progress calculated based on ${regulation.name} requirements`}>{regulation.name}</span>
+                <div className="w-full bg-gray-200 rounded-full h-2 mx-4">
+                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${regulation.progress}%` }}></div>
+                </div>
+                <span>{regulation.progress}%</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold">Recommended Steps</h3>
+            <ul className="list-disc pl-5">
+              <li>Complete 2 pending trainings under GDPR.</li>
+              <li>Submit missing audit reports for HIPAA.</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mb-8 p-6">
         <CardHeader>
-          <CardTitle>Compliance Health Score</CardTitle>
+          <CardTitle className="text-xl font-semibold">Task List</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="bg-gray-200 rounded-full h-6 mb-4">
-            <div className="bg-green-500 h-6 rounded-full" style={{ width: `${data.complianceScore}%` }}></div>
-          </div>
-          <p className="text-sm">{data.complianceScore}% compliant with current regulations</p>
-          {data.regulations.map((regulation) => (
-            <div key={regulation.name} className="mb-2">
-              <p>{regulation.name}: {regulation.progress}%</p>
-              <div className="bg-gray-200 rounded-full h-4">
-                <div className="bg-blue-500 h-4 rounded-full" style={{ width: `${regulation.progress}%` }}></div>
-              </div>
+          <ul className="space-y-2">
+            {data.tasks.map((task, index) => (
+              <li key={index} className="flex items-center">
+                {task.priority === 'High' && <span className="mr-2 text-red-600">🔴</span>}
+                {task.name} – Due: {task.dueDate}
+                <span className="ml-2 text-sm text-gray-500">(Related to {task.relatedRegulation})</span>
+                {task.recurring && <span className="ml-2">🔄</span>}
+              </li>
+            ))}
+          </ul>
+          <a href="/tasks" className="text-blue-600 hover:underline mt-2 block">View All Tasks</a>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-8 p-6">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold">Document Center</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2">
+            {docs.slice(0, 3).map((doc, index) => (
+              <li key={index} className="flex items-center">
+                {doc.name} – Updated on {doc.date}
+                {doc.status === 'Expiring Soon' && <span className="text-yellow-500 ml-2">⚠</span>}
+                {doc.status === 'Updated' && <span className="text-green-500 ml-2">✅</span>}
+              </li>
+            ))}
+          </ul>
+          <a href="/documents" className="text-blue-600 hover:underline mt-2 block">View All Documents</a>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-8 p-6">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold">Notifications Panel</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {notifs.map((notif, index) => (
+            <div key={index} className={`flex items-center ${notif.type === 'critical' ? 'text-red-600' : notif.type === 'important' ? 'text-orange-600' : 'text-blue-600'}`}>
+              {notif.message}
+              <button className="ml-auto text-gray-500 hover:text-gray-700" onClick={() => dismissNotification(index)}>Dismiss</button>
             </div>
           ))}
-          {data.alerts.map((alert, index) => (
-            <p key={index} className={`text-${alert.type === 'warning' ? 'red' : 'yellow'}-500`}>{alert.message}</p>
-          ))}
         </CardContent>
       </Card>
 
-      <div className="flex space-x-4 mb-8">
-        <Button onClick={() => router.push('/tasks')}>Add a Task</Button>
-        <Button onClick={() => router.push('/documents')}>Upload a Document</Button>
-        <Button onClick={() => router.push('/reports')}>Generate Report</Button>
+      <div className="flex space-x-6 mt-10">
+        <Button title="Create a new compliance-related task for your team to complete." onClick={() => router.push('/tasks')} className="bg-blue-600 hover:bg-blue-700 text-white">Add a Task</Button>
+        <Button title="Upload compliance documentation such as policies or certificates." onClick={() => router.push('/documents')} className="bg-blue-600 hover:bg-blue-700 text-white">Upload a Document</Button>
+        <Button title="Create a summary report for audits, internal reviews, or stakeholder updates." onClick={() => router.push('/reports')} className="bg-blue-600 hover:bg-blue-700 text-white">Generate Report</Button>
       </div>
 
-      <Card className="mb-8 p-6">
+      <Card className="mt-10 shadow-lg">
         <CardHeader>
-          <CardTitle>Task List</CardTitle>
+          <CardTitle className="text-xl font-bold">Quick Overview</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ul className="list-disc pl-5">
-            {data.tasks.map((task, index) => (
-              <li key={index} className="mb-2">
-                {task.name} - <span className="text-yellow-500">Due: {task.dueDate}</span>
-                <button className="ml-2 text-blue-500">Mark as Done</button>
-              </li>
-            ))}
-          </ul>
+        <CardContent className="text-base space-y-2">
+          <p>Overdue Tasks: 2</p>
+          <p>Expiring Documents: 3</p>
+          <p>Compliance Framework Summary:</p>
+          <p>HIPAA: 90% Complete</p>
+          <p>GDPR: 70% Complete</p>
         </CardContent>
       </Card>
 
-      <Card className="mb-8 p-6">
+      <Card className="mt-10 shadow-lg">
         <CardHeader>
-          <CardTitle>Document Center</CardTitle>
+          <CardTitle className="text-xl font-bold">Quick Links</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ul className="list-disc pl-5">
-            {docs.map((doc, index) => (
-              <li key={index} className="mb-2">
-                {doc.name} - <span className="text-gray-500">{doc.category}</span> (Uploaded: {doc.date})
-              </li>
-            ))}
-          </ul>
-          <button className="mt-4 text-blue-500">Upload New Document</button>
+        <CardContent className="flex space-x-4">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white">Generate Report</Button>
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white">View All Tasks</Button>
         </CardContent>
       </Card>
 
-      <Card className="mb-8 p-6">
+      <Card className="mt-10 shadow-lg">
         <CardHeader>
-          <CardTitle>Notifications Panel</CardTitle>
+          <CardTitle className="text-xl font-bold">Compliance Insights</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ul className="list-disc pl-5">
-            {notifs.map((notification, index) => (
-              <li key={index} className={`mb-2 text-${notification.type === 'warning' ? 'red' : 'yellow'}-500`}>
-                {notification.message}
-              </li>
-            ))}
-          </ul>
+        <CardContent className="text-base">
+          <p>Your GDPR compliance improved by 15% last quarter.</p>
         </CardContent>
       </Card>
     </div>
