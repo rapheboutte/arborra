@@ -3,8 +3,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Activity, CheckCircle, Clock } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
+import { useRouter } from 'next/navigation';
 
 const mockData = {
   complianceScore: 85,
@@ -34,7 +35,7 @@ const notifications = [
 
 const companyName = "Jane's Retail Store";
 
-export default function Dashboard() {
+const Dashboard = () => {
   const [data, setData] = useState(mockData);
   const [docs, setDocs] = useState(documents);
   const [notifs, setNotifs] = useState(notifications);
@@ -100,6 +101,12 @@ export default function Dashboard() {
     { tip: 'You may be non-compliant with OSHA workplace safety standards.', action: 'Check Now' },
   ];
 
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!router) return;
+  }, [router]);
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Welcome, {companyName}</h1>
@@ -128,9 +135,9 @@ export default function Dashboard() {
       </Card>
 
       <div className="flex space-x-4 mb-8">
-        <Button>Add a Task</Button>
-        <Button>Upload a Document</Button>
-        <Button>Generate Report</Button>
+        <Button onClick={() => router.push('/tasks')}>Add a Task</Button>
+        <Button onClick={() => router.push('/documents')}>Upload a Document</Button>
+        <Button onClick={() => router.push('/reports')}>Generate Report</Button>
       </div>
 
       <Card className="mb-8 p-6">
@@ -182,3 +189,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+export default Dashboard;
