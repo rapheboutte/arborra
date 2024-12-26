@@ -7,15 +7,14 @@ import { cn } from "@/lib/utils"
 
 const TooltipProvider = TooltipPrimitive.Provider
 
-const Tooltip = TooltipPrimitive.Root
-
-const TooltipTrigger = TooltipPrimitive.Trigger
-
-const TooltipContent = React.forwardRef<
+const Tooltip = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <TooltipPrimitive.Portal>
+>(({ className, sideOffset = 4, children, content, ...props }, ref) => (
+  <TooltipPrimitive.Root>
+    <TooltipPrimitive.Trigger asChild>
+      {children}
+    </TooltipPrimitive.Trigger>
     <TooltipPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
@@ -24,9 +23,12 @@ const TooltipContent = React.forwardRef<
         className
       )}
       {...props}
-    />
-  </TooltipPrimitive.Portal>
+    >
+      {content}
+      <TooltipPrimitive.Arrow className="fill-current text-primary" />
+    </TooltipPrimitive.Content>
+  </TooltipPrimitive.Root>
 ))
-TooltipContent.displayName = TooltipPrimitive.Content.displayName
+Tooltip.displayName = "Tooltip"
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export { Tooltip, TooltipProvider }

@@ -1,267 +1,204 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar } from "@/components/ui/calendar";
-import { Activity, CheckCircle, Clock } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { DashboardSkeleton } from '@/components/loading-states';
+import { ComplianceService } from '@/lib/services/compliance';
+import { mockComplianceData } from '@/lib/mocks/gdpr';
+import { Info, TrendingUp, TrendingDown } from 'lucide-react';
+import { Tooltip } from '@/components/ui/tooltip';
+import ComplianceModal from '@/components/ui/ComplianceModal';
 
-const mockData = {
-  complianceScore: 85,
-  regulations: [
-    { name: 'GDPR', progress: 70 },
-    { name: 'HIPAA', progress: 90 },
-  ],
-  alerts: [
-    { message: '2 overdue tasks!', type: 'warning' },
-    { message: 'Audit report due in 3 days', type: 'info' },
-  ],
-  tasks: [
-    { name: 'Complete Employee HIPAA Training', dueDate: '2024-12-25', priority: 'High', status: 'Pending', recurring: false, relatedRegulation: 'HIPAA' },
-    { name: 'Submit Quarterly Safety Report', dueDate: '2024-12-30', priority: 'Low', status: 'Pending', recurring: false, relatedRegulation: 'OSHA' },
-    { name: 'Conduct Annual Compliance Review', dueDate: '2025-01-15', priority: 'High', status: 'Pending', recurring: true, relatedRegulation: 'GDPR' },
-  ],
+const initialData = {
+  companyName: "Jane's Retail Store",
+  complianceScore: 0,
+  regulations: []
 };
 
-const documents = [
-  { name: 'Privacy Policy', category: 'Legal', date: '2024-01-15', status: 'Updated' },
-  { name: 'Safety Training Certificate', category: 'Training', date: '2024-02-10', status: 'Expiring Soon' },
-];
+interface DashboardData {
+  companyName: string;
+  complianceScore: number;
+  regulations: Array<{
+    name: string;
+    progress: number;
+  }>;
+}
 
-const notifications = [
-  { message: 'Data Protection Policy Update due in 5 days', type: 'important' },
-  { message: 'HIPAA training certificates expiring soon', type: 'critical' },
-];
-
-const companyName = "Jane's Retail Store";
-
-const Dashboard = () => {
-  const [data, setData] = useState(mockData);
-  const [docs, setDocs] = useState(documents);
-  const [notifs, setNotifs] = useState(notifications);
-  const today = new Date();
-  const modifiers = {
-    overdue: { before: new Date('2023-07-15') },
-    dueToday: { on: today },
-    upcoming: { after: today, before: new Date('2023-08-01') },
-    future: { after: new Date('2023-08-01') },
+const ComplianceCard = ({ framework, data, onViewDetails }) => {
+  const getStatusClass = (score: number) => {
+    if (score >= 80) return 'bg-green-100 text-green-800';
+    if (score >= 60) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
   };
 
-  const modifierClassNames = {
-    overdue: 'bg-red-500',
-    dueToday: 'bg-yellow-500',
-    upcoming: 'bg-blue-500',
-    future: 'bg-green-500',
+  const getProgressClass = (score: number) => {
+    if (score >= 80) return 'bg-green-500';
+    if (score >= 60) return 'bg-yellow-500';
+    return 'bg-red-500';
   };
 
-  const [selectedReport, setSelectedReport] = useState('GDPR Audit Report');
-
-  const reportTypes = [
-    'GDPR Audit Report',
-    'HIPAA Compliance Summary',
-    'OSHA Safety Audit',
-  ];
-
-  const [reportSections, setReportSections] = useState([
-    'Completed Tasks',
-    'Stored Documents',
-    'Compliance Progress',
-  ]);
-
-  const toggleSection = (section) => {
-    setReportSections((prevSections) =>
-      prevSections.includes(section)
-        ? prevSections.filter((s) => s !== section)
-        : [...prevSections, section]
-    );
+  const getStatusText = (score: number) => {
+    if (score >= 80) return 'Compliant';
+    if (score >= 60) return 'Partially Compliant';
+    return 'Non-Compliant';
   };
 
-  const exportReport = (format) => {
-    alert(`Report exported as ${format}!`);
-  };
-
-  const generateReport = () => {
-    alert('Report generated successfully!');
-  };
-
-  const [selectedTemplate, setSelectedTemplate] = useState('GDPR Audit Report');
-
-  const templates = [
-    'GDPR Audit Report',
-    'HIPAA Compliance Summary',
-    'OSHA Safety Audit',
-  ];
-
-  const generateTemplateReport = () => {
-    alert(`Generating ${selectedTemplate}...`);
-  };
-
-  const recommendations = [
-    { tip: 'Update your privacy policy to reflect new GDPR changes.', action: 'Learn More' },
-    { tip: 'You may be non-compliant with OSHA workplace safety standards.', action: 'Check Now' },
-  ];
-
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!router) return;
-  }, [router]);
-
-  const dismissNotification = (index) => {
-    setNotifs(notifs.filter((notif, i) => i !== index));
-  };
-
-  const [onboardingStep, setOnboardingStep] = useState(0);
-  const onboardingSteps = [
-    'Welcome to Arborra! Let’s start by adding your first compliance task.',
-    'Great! Now, upload a compliance document to the Document Center.',
-    'Finally, configure your notification settings to stay informed.',
-  ];
-
-  const nextStep = () => {
-    setOnboardingStep((prevStep) => Math.min(prevStep + 1, onboardingSteps.length - 1));
-  };
-
-  const prevStep = () => {
-    setOnboardingStep((prevStep) => Math.max(prevStep - 1, 0));
+  const trend = {
+    direction: framework === 'GDPR' ? 'up' : framework === 'HIPAA' ? 'down' : 'up',
+    change: framework === 'GDPR' ? 3 : framework === 'HIPAA' ? 2 : 1
   };
 
   return (
-    <div className="container mx-auto px-6 py-8">
-      {onboardingStep < onboardingSteps.length && (
-        <div className="fixed bottom-4 right-4 bg-white p-4 shadow-lg rounded-lg">
-          <p>{onboardingSteps[onboardingStep]}</p>
-          <div className="flex justify-between mt-2">
-            <button onClick={prevStep} className="text-blue-600 hover:underline">Back</button>
-            <button onClick={nextStep} className="text-blue-600 hover:underline">Next</button>
+    <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">{framework} Compliance Status</h3>
+        <Tooltip>
+          <Info className="w-4 h-4 text-gray-400" />
+        </Tooltip>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Status</span>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(data.complianceScore)}`}>
+            {getStatusText(data.complianceScore)}
+          </span>
+        </div>
+
+        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+          <div
+            className={`h-full transition-all duration-500 ease-out ${getProgressClass(data.complianceScore)}`}
+            style={{ width: `${data.complianceScore}%` }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600">
+            Current Score: {data.complianceScore}%
+          </span>
+          <div className={`flex items-center gap-1 ${trend.direction === 'up' ? 'text-green-500' : 'text-red-500'}`}>
+            {trend.direction === 'up' ? (
+              <TrendingUp className="w-4 h-4" />
+            ) : (
+              <TrendingDown className="w-4 h-4" />
+            )}
+            <span>{trend.change}%</span>
           </div>
         </div>
-      )}
-      <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
-        <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${((onboardingStep + 1) / onboardingSteps.length) * 100}%` }}></div>
+
+        <Button
+          onClick={onViewDetails}
+          variant="outline"
+          className="w-full mt-2"
+        >
+          View Details
+        </Button>
       </div>
-      <h1 className="text-3xl font-bold mb-8">Welcome, {companyName}</h1>
-      <Card className="mb-8 p-6 bg-gray-100">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">Compliance Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-between items-center">
-            <div className="text-4xl font-extrabold text-blue-600" title="Calculated based on completed tasks and document compliance">{data.complianceScore}%</div>
-            <Button className="bg-green-500 hover:bg-green-600 text-white">View Details</Button>
-          </div>
-          <div className="mt-4">
-            {data.regulations.map((regulation, index) => (
-              <div key={index} className="flex justify-between items-center mb-2">
-                <span className="font-semibold" title={`Progress calculated based on ${regulation.name} requirements`}>{regulation.name}</span>
-                <div className="w-full bg-gray-200 rounded-full h-2 mx-4">
-                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${regulation.progress}%` }}></div>
-                </div>
-                <span>{regulation.progress}%</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4">
-            <h3 className="text-lg font-semibold">Recommended Steps</h3>
-            <ul className="list-disc pl-5">
-              <li>Complete 2 pending trainings under GDPR.</li>
-              <li>Submit missing audit reports for HIPAA.</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-8 p-6">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">Task List</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2">
-            {data.tasks.map((task, index) => (
-              <li key={index} className="flex items-center">
-                {task.priority === 'High' && <span className="mr-2 text-red-600">🔴</span>}
-                {task.name} – Due: {task.dueDate}
-                <span className="ml-2 text-sm text-gray-500">(Related to {task.relatedRegulation})</span>
-                {task.recurring && <span className="ml-2">🔄</span>}
-              </li>
-            ))}
-          </ul>
-          <a href="/tasks" className="text-blue-600 hover:underline mt-2 block">View All Tasks</a>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-8 p-6">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">Document Center</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2">
-            {docs.slice(0, 3).map((doc, index) => (
-              <li key={index} className="flex items-center">
-                {doc.name} – Updated on {doc.date}
-                {doc.status === 'Expiring Soon' && <span className="text-yellow-500 ml-2">⚠</span>}
-                {doc.status === 'Updated' && <span className="text-green-500 ml-2">✅</span>}
-              </li>
-            ))}
-          </ul>
-          <a href="/documents" className="text-blue-600 hover:underline mt-2 block">View All Documents</a>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-8 p-6">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">Notifications Panel</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {notifs.map((notif, index) => (
-            <div key={index} className={`flex items-center ${notif.type === 'critical' ? 'text-red-600' : notif.type === 'important' ? 'text-orange-600' : 'text-blue-600'}`}>
-              {notif.message}
-              <button className="ml-auto text-gray-500 hover:text-gray-700" onClick={() => dismissNotification(index)}>Dismiss</button>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <div className="flex space-x-6 mt-10">
-        <Button title="Create a new compliance-related task for your team to complete." onClick={() => router.push('/tasks')} className="bg-blue-600 hover:bg-blue-700 text-white">Add a Task</Button>
-        <Button title="Upload compliance documentation such as policies or certificates." onClick={() => router.push('/documents')} className="bg-blue-600 hover:bg-blue-700 text-white">Upload a Document</Button>
-        <Button title="Create a summary report for audits, internal reviews, or stakeholder updates." onClick={() => router.push('/reports')} className="bg-blue-600 hover:bg-blue-700 text-white">Generate Report</Button>
-      </div>
-
-      <Card className="mt-10 shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">Quick Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="text-base space-y-2">
-          <p>Overdue Tasks: 2</p>
-          <p>Expiring Documents: 3</p>
-          <p>Compliance Framework Summary:</p>
-          <p>HIPAA: 90% Complete</p>
-          <p>GDPR: 70% Complete</p>
-        </CardContent>
-      </Card>
-
-      <Card className="mt-10 shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">Quick Links</CardTitle>
-        </CardHeader>
-        <CardContent className="flex space-x-4">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white">Generate Report</Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white">View All Tasks</Button>
-        </CardContent>
-      </Card>
-
-      <Card className="mt-10 shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">Compliance Insights</CardTitle>
-        </CardHeader>
-        <CardContent className="text-base">
-          <p>Your GDPR compliance improved by 15% last quarter.</p>
-        </CardContent>
-      </Card>
     </div>
   );
-}
+};
 
-export default Dashboard;
+const Dashboard = () => {
+  const router = useRouter();
+  const complianceService = useMemo(() => new ComplianceService(), []);
+  const [data, setData] = useState<DashboardData>(initialData);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [complianceData, setComplianceData] = useState(mockComplianceData);
+  const [selectedFramework, setSelectedFramework] = useState<string | null>(null);
+
+  const fetchComplianceData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const overview = await complianceService.getComplianceOverview();
+      setComplianceData(overview);
+      setData(prev => ({
+        ...prev,
+        complianceScore: Object.values(overview).reduce((acc, curr) => acc + curr.complianceScore, 0) / Object.keys(overview).length,
+        regulations: Object.entries(overview).map(([framework, data]) => ({
+          name: framework.toUpperCase(),
+          progress: data.complianceScore
+        }))
+      }));
+    } catch (err) {
+      console.error('Error loading compliance data:', err);
+      setError(err instanceof Error ? err : new Error('Failed to load compliance data'));
+      setComplianceData(mockComplianceData);
+    } finally {
+      setLoading(false);
+    }
+  }, [complianceService]);
+
+  const handleViewDetails = useCallback((framework: string) => {
+    setSelectedFramework(framework);
+    setModalTitle(`${framework.toUpperCase()} Compliance Details`);
+    setModalOpen(true);
+  }, []);
+
+  useEffect(() => {
+    fetchComplianceData();
+  }, [fetchComplianceData]);
+
+  return (
+    <ErrorBoundary>
+      <div className="p-6">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Welcome, {data.companyName}</h1>
+          <div className="mt-4 flex space-x-2">
+            <Button variant="outline" size="sm">Settings</Button>
+            <Button variant="default" size="sm">Generate Report</Button>
+          </div>
+        </div>
+
+        {loading ? (
+          <DashboardSkeleton />
+        ) : error ? (
+          <div className="bg-red-50 p-4 rounded-lg">
+            <h3 className="text-red-800 font-medium">Error Loading Dashboard</h3>
+            <p className="text-red-700 mt-1">{error.message}</p>
+            <Button 
+              onClick={() => fetchComplianceData()}
+              variant="destructive"
+              className="mt-4"
+            >
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Object.entries(complianceData).map(([framework, data]) => (
+              <ComplianceCard
+                key={framework}
+                framework={framework.toUpperCase()}
+                data={data}
+                onViewDetails={() => handleViewDetails(framework)}
+              />
+            ))}
+          </div>
+        )}
+
+        {selectedFramework && (
+          <ComplianceModal 
+            open={modalOpen} 
+            onClose={() => setModalOpen(false)} 
+            title={modalTitle}
+            framework={selectedFramework}
+            data={complianceData[selectedFramework]}
+          />
+        )}
+      </div>
+    </ErrorBoundary>
+  );
+};
+
+export default function Page() {
+  return (
+    <Dashboard />
+  );
+}
