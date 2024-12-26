@@ -58,3 +58,51 @@ export interface ApiResponse<T> {
     page: number;
   };
 }
+
+export interface DocumentAnalysisResult {
+  framework: string;
+  status: 'current' | 'needs_review' | 'expired';
+  complianceScore: number;
+  nextReviewDate: string;
+  validationResults: {
+    passed: DocumentValidation[];
+    failed: DocumentValidation[];
+  };
+  metadata: {
+    documentType: string;
+    version: string;
+    lastModified: string;
+    author: string;
+  };
+}
+
+export interface DocumentValidation {
+  id: string;
+  requirement: string;
+  description: string;
+  status: 'passed' | 'failed';
+  severity: 'high' | 'medium' | 'low';
+  details?: string;
+}
+
+export interface FrameworkRequirements {
+  id: string;
+  name: string;
+  sections: {
+    id: string;
+    title: string;
+    requirements: string[];
+    keywords: string[];
+  }[];
+}
+
+export interface DocumentAnalysisRequest {
+  content: string;
+  fileName: string;
+  framework?: string;
+  metadata?: {
+    author?: string;
+    version?: string;
+    documentType?: string;
+  };
+}

@@ -1,43 +1,104 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, Download, Trash2 } from 'lucide-react'
-import mammoth from 'mammoth';
+import { Upload, Download, Trash2, FileText, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import mammoth from 'mammoth'
+import { toast } from "sonner"
+import { analyzeDocument } from '@/lib/compliance/documentAnalysis';
 
 interface Document {
-  id: number;
-  name: string;
-  uploadedBy: string;
-  dateUploaded: string;
-  lastModified: string;
-  content: File;
-  tags: string[];
+  id: number
+  name: string
+  uploadedBy: string
+  dateUploaded: string
+  lastModified: string
+  content: File
+  tags: string[]
   metadata: {
-    owner: string;
-    description: string;
-    category: string;
-    version: string;
-  };
+    owner: string
+    description: string
+    category: string
+    version: string
+    framework: string
+    status: 'current' | 'needs_review' | 'expired'
+    nextReviewDate: string
+    complianceScore: number
+    validationResults: {
+      passed: Array<{
+        id: string
+        requirement: string
+        description: string
+        status: string
+        severity: string
+        details?: string
+      }>;
+      failed: Array<{
+        id: string
+        requirement: string
+        description: string
+        status: string
+        severity: string
+        details?: string
+      }>;
+    }
+  }
 }
+
+const COMPLIANCE_FRAMEWORKS = [
+  { id: 'gdpr', name: 'GDPR', color: 'blue' },
+  { id: 'hipaa', name: 'HIPAA', color: 'green' },
+  { id: 'sox', name: 'SOX', color: 'purple' },
+  { id: 'iso27001', name: 'ISO 27001', color: 'orange' }
+]
+
+const DOCUMENT_TEMPLATES = [
+  {
+    id: 1,
+    name: 'Privacy Policy',
+    framework: 'gdpr',
+    description: 'Standard GDPR-compliant privacy policy template'
+  },
+  {
+    id: 2,
+    name: 'Data Processing Agreement',
+    framework: 'gdpr',
+    description: 'Template for processing agreements with third parties'
+  },
+  {
+    id: 3,
+    name: 'DPIA Template',
+    framework: 'gdpr',
+    description: 'Data Protection Impact Assessment template'
+  },
+  {
+    id: 4,
+    name: 'Incident Response Plan',
+    framework: 'hipaa',
+    description: 'HIPAA-compliant incident response procedure template'
+  }
+]
 
 // Mock data
 const initialDocuments: Document[] = [];
 
 export default function DocumentRepository() {
+  const [activeTab, setActiveTab] = useState('all')
   const [dragActive, setDragActive] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedDocument, setSelectedDocument] = useState(null)
-  const [uploadedDocuments, setUploadedDocuments] = useState(initialDocuments)
+  const [uploadedDocuments, setUploadedDocuments] = useState<Document[]>([])
   const [documentContent, setDocumentContent] = useState<string | null>(null)
-  const [ownerInput, setOwnerInput] = useState('');
-  const [descriptionInput, setDescriptionInput] = useState('');
-  const [categoryInput, setCategoryInput] = useState('');
-  const [versionInput, setVersionInput] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-  const [stagingFiles, setStagingFiles] = useState<Document[]>([]);
+  const [isUploading, setIsUploading] = useState(false)
+
+  useEffect(() => {
+    console.log("Current uploaded documents:", uploadedDocuments)
+  }, [uploadedDocuments])
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -49,13 +110,12 @@ export default function DocumentRepository() {
     }
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      // Handle file upload
-      console.log("File(s) dropped")
+      await handleFileStaging(e.dataTransfer.files)
     }
   }
 
@@ -63,288 +123,366 @@ export default function DocumentRepository() {
     setSearchQuery(query)
   }
 
-  const handleFileUpload = (files: FileList) => {
-    Array.from(files).forEach((file, index) => {
-      if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          console.log('Reading .docx file');
-          const arrayBuffer = e.target?.result;
-          if (arrayBuffer) {
-            try {
-              const result = await mammoth.extractRawText({ arrayBuffer });
-              console.log('Extracted text:', result.value);
-              setDocumentContent(result.value);
-            } catch (error) {
-              console.error('Error processing .docx file:', error);
-              setDocumentContent('Error processing document.');
-            }
+  const handleFileStaging = async (files: FileList) => {
+    try {
+      setIsUploading(true);
+      toast.info(`Processing ${files.length} document(s)...`);
+
+      const stagedFiles = await Promise.all(Array.from(files).map(async (file, index) => {
+        let content = '';
+        try {
+          if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+            const buffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+            content = result.value;
+          } else {
+            content = await file.text();
           }
-        };
-        reader.readAsArrayBuffer(file);
-      } else {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setDocumentContent(e.target?.result as string);
-        };
-        reader.readAsText(file);
+
+          const analysis = await analyzeDocument(content, file.name);
+
+          const newDocument = {
+            id: uploadedDocuments.length + index + 1,
+            name: file.name,
+            uploadedBy: "Current User",
+            dateUploaded: new Date().toISOString().split('T')[0],
+            lastModified: analysis.metadata.lastModified,
+            content: file,
+            tags: [],
+            metadata: {
+              owner: analysis.metadata.author,
+              description: '',
+              category: analysis.metadata.documentType,
+              version: analysis.metadata.version,
+              framework: analysis.framework,
+              status: analysis.status,
+              nextReviewDate: analysis.nextReviewDate,
+              complianceScore: analysis.complianceScore,
+              validationResults: analysis.validationResults
+            }
+          };
+
+          return newDocument;
+        } catch (error) {
+          console.error("Error reading file:", error);
+          toast.error(`Error processing ${file.name}`);
+          return null;
+        }
+      }));
+
+      // Filter out any null values from failed uploads
+      const validFiles = stagedFiles.filter((file): file is Document => file !== null);
+
+      if (validFiles.length > 0) {
+        setUploadedDocuments(prev => {
+          const newDocs = [...prev, ...validFiles];
+          console.log("Updated documents:", newDocs);
+          return newDocs;
+        });
+        toast.success(`Successfully uploaded ${validFiles.length} document(s)`);
       }
 
-      const newDocument = {
-        id: uploadedDocuments.length + index + 1,
-        name: file.name,
-        uploadedBy: "Current User",
-        dateUploaded: new Date().toISOString().split('T')[0],
-        lastModified: new Date(file.lastModified).toISOString().split('T')[0],
-        content: file,
-        tags: tagsInput.split(',').map(tag => tag.trim()),
-        metadata: {
-          owner: ownerInput,
-          description: descriptionInput,
-          category: categoryInput,
-          version: versionInput,
-        },
-      };
-      setUploadedDocuments((prev) => [...prev, newDocument]);
+    } catch (error) {
+      console.error("Error in handleFileStaging:", error);
+      toast.error("Error uploading documents");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  const handleDownload = (e: React.MouseEvent, doc: Document) => {
+    e.stopPropagation(); // Prevent row selection
+    const url = window.URL.createObjectURL(doc.content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = doc.name;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    toast.success(`Downloading ${doc.name}`);
+  };
+
+  const handleDelete = (e: React.MouseEvent, docId: number) => {
+    e.stopPropagation(); // Prevent row selection
+    setUploadedDocuments(prev => {
+      const newDocs = prev.filter(doc => doc.id !== docId);
+      if (selectedDocument?.id === docId) {
+        setSelectedDocument(null);
+      }
+      return newDocs;
     });
-    setTagsInput('');
-    setOwnerInput('');
-    setDescriptionInput('');
-    setCategoryInput('');
-    setVersionInput('');
+    toast.success('Document deleted');
   };
 
-  const handleFileStaging = (files: FileList) => {
-    const stagedFiles = Array.from(files).map((file, index) => ({
-      id: stagingFiles.length + index + 1,
-      name: file.name,
-      uploadedBy: "Current User",
-      dateUploaded: new Date().toISOString().split('T')[0],
-      lastModified: new Date(file.lastModified).toISOString().split('T')[0],
-      content: file,
-      tags: [],
-      metadata: {
-        owner: ownerInput,
-        description: descriptionInput,
-        category: categoryInput,
-        version: versionInput,
-      },
-    }));
-    setStagingFiles((prev) => [...prev, ...stagedFiles]);
-    setOwnerInput('');
-    setDescriptionInput('');
-    setCategoryInput('');
-    setVersionInput('');
-  };
-
-  const confirmUpload = (file: Document) => {
-    setUploadedDocuments((prev) => [...prev, file]);
-    setStagingFiles((prev) => prev.filter((f) => f.id !== file.id));
-    setSelectedDocument(null);
-    setDocumentContent(null);
-  };
-
-  const handlePreview = (doc: any) => {
-    const file = uploadedDocuments.find((d) => d.id === doc.id);
-    if (file) {
-      if (file.name.endsWith('.txt')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setDocumentContent(e.target?.result as string);
-        };
-        reader.readAsText(file.content);
-      } else if (file.name.endsWith('.docx')) {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const arrayBuffer = e.target?.result;
-          if (arrayBuffer) {
-            try {
-              const result = await mammoth.extractRawText({ arrayBuffer });
-              setDocumentContent(result.value);
-            } catch (error) {
-              console.error('Error processing .docx file:', error);
-              setDocumentContent('Error processing document.');
-            }
-          }
-        };
-        reader.readAsArrayBuffer(file.content);
-      } else {
-        setDocumentContent('Preview not available for this file type.');
-      }
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'current':
+        return <Badge variant="success" className="flex items-center gap-1">
+          <CheckCircle className="h-3 w-3" /> Current
+        </Badge>
+      case 'needs_review':
+        return <Badge variant="warning" className="flex items-center gap-1">
+          <Clock className="h-3 w-3" /> Needs Review
+        </Badge>
+      case 'expired':
+        return <Badge variant="destructive" className="flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" /> Expired
+        </Badge>
+      default:
+        return null
     }
-    setSelectedDocument(doc);
-  };
+  }
 
-  const handleDelete = (id: number) => {
-    setUploadedDocuments((prev) => prev.filter((doc) => doc.id !== id));
-    if (selectedDocument?.id === id) {
-      setSelectedDocument(null);
-      setDocumentContent(null);
-    }
-  };
+  const getFrameworkBadge = (framework: string) => {
+    const fw = COMPLIANCE_FRAMEWORKS.find(f => f.id === framework)
+    return fw ? (
+      <Badge variant="outline" className={`text-${fw.color}-600 border-${fw.color}-600`}>
+        {fw.name}
+      </Badge>
+    ) : null
+  }
 
-  const filteredDocuments = uploadedDocuments.filter((doc) =>
-    doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    doc.metadata.owner.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.metadata.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.metadata.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.metadata.version.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDocuments = uploadedDocuments.filter((doc) => {
+    if (activeTab !== 'all' && doc.metadata.framework !== activeTab) return false
+    
+    return (
+      doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      doc.metadata.owner.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.metadata.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.metadata.category.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  })
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Document Repository</h1>
-
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Search documents..."
-          className="w-full p-2 border border-gray-300 rounded"
-          onChange={(e) => handleSearch(e.target.value)}
-        />
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Document Repository</h1>
+        <Button onClick={() => document.getElementById('file-upload')?.click()}>
+          <Upload className="h-4 w-4 mr-2" /> Upload Document
+        </Button>
       </div>
 
-      <div className="flex">
-        <div className="w-2/3 pr-4">
-          <Card className="mb-8">
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-2xl">
+              {uploadedDocuments.length}
+            </CardTitle>
+            <CardDescription>Total Documents</CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-2xl text-green-600">
+              {uploadedDocuments.filter(d => d.metadata.status === 'current').length}
+            </CardTitle>
+            <CardDescription>Current</CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-2xl text-yellow-600">
+              {uploadedDocuments.filter(d => d.metadata.status === 'needs_review').length}
+            </CardTitle>
+            <CardDescription>Needs Review</CardDescription>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-2xl text-red-600">
+              {uploadedDocuments.filter(d => d.metadata.status === 'expired').length}
+            </CardTitle>
+            <CardDescription>Expired</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-3 gap-8">
+        <div className="col-span-2">
+          <Card>
             <CardHeader>
-              <CardTitle>Upload Documents</CardTitle>
-              <CardDescription>Drag and drop your files here or click to browse</CardDescription>
+              <div className="flex justify-between items-center">
+                <CardTitle>Documents ({uploadedDocuments.length})</CardTitle>
+                <input
+                  type="text"
+                  placeholder="Search documents..."
+                  className="w-64 px-3 py-1 border rounded-md"
+                  onChange={(e) => handleSearch(e.target.value)}
+                />
+              </div>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList>
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  {COMPLIANCE_FRAMEWORKS.map(framework => (
+                    <TabsTrigger key={framework.id} value={framework.id}>
+                      {framework.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[250px]">Document</TableHead>
+                    <TableHead className="w-[120px]">Framework</TableHead>
+                    <TableHead className="w-[120px]">Status</TableHead>
+                    <TableHead className="w-[150px]">Compliance Score</TableHead>
+                    <TableHead className="w-[120px]">Review Date</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {uploadedDocuments.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-gray-500">
+                        No documents uploaded yet
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredDocuments.map((doc) => (
+                      <TableRow key={doc.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedDocument(doc)}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-gray-400" />
+                            {doc.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>{getFrameworkBadge(doc.metadata.framework)}</TableCell>
+                        <TableCell>{getStatusBadge(doc.metadata.status)}</TableCell>
+                        <TableCell>
+                          <div className="w-full">
+                            <Progress value={doc.metadata.complianceScore} className="h-2" />
+                            <span className="text-sm text-gray-500">{doc.metadata.complianceScore}%</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{doc.metadata.nextReviewDate}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={(e) => handleDownload(e, doc)}
+                              title="Download document"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => handleDelete(e, doc.id)}
+                              title="Delete document"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Document Upload</CardTitle>
+              <CardDescription>Drag and drop or click to upload</CardDescription>
             </CardHeader>
             <CardContent>
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center ${
+                className={`border-2 border-dashed rounded-lg p-6 text-center ${
                   dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
-                }`}
+                } ${isUploading ? "opacity-50 cursor-not-allowed" : ""}`}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
               >
-                <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="mt-2 text-sm text-gray-600">Drag and drop your files here, or click to select files</p>
                 <input
                   id="file-upload"
-                  name="file-upload"
                   type="file"
                   className="hidden"
                   multiple
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      handleFileStaging(e.target.files);
-                    }
-                  }}
+                  onChange={(e) => e.target.files && handleFileStaging(e.target.files)}
+                  disabled={isUploading}
                 />
-                <Button className="mt-4" onClick={() => document.getElementById('file-upload')?.click()}>Browse Files</Button>
+                <Upload className={`mx-auto h-8 w-8 ${isUploading ? "text-gray-300" : "text-gray-400"}`} />
+                <p className="mt-2 text-sm text-gray-600">
+                  {isUploading ? "Processing documents..." : "Drop your files here or click to browse"}
+                </p>
               </div>
-              <div className="mb-4">
-                {stagingFiles.map((file) => (
-                  <div key={file.id} className="border p-4 mb-2 rounded">
-                    <p className="font-semibold">{file.name}</p>
-                    <input
-                      type="text"
-                      placeholder="Document Owner"
-                      className="w-full p-2 border border-gray-300 rounded mb-2"
-                      value={file.metadata.owner}
-                      onChange={(e) => {
-                        const updatedOwner = e.target.value;
-                        setStagingFiles((prev) => prev.map(f => f.id === file.id ? { ...f, metadata: { ...f.metadata, owner: updatedOwner } } : f));
-                      }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Description"
-                      className="w-full p-2 border border-gray-300 rounded mb-2"
-                      value={file.metadata.description}
-                      onChange={(e) => {
-                        const updatedDescription = e.target.value;
-                        setStagingFiles((prev) => prev.map(f => f.id === file.id ? { ...f, metadata: { ...f.metadata, description: updatedDescription } } : f));
-                      }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Category"
-                      className="w-full p-2 border border-gray-300 rounded mb-2"
-                      value={file.metadata.category}
-                      onChange={(e) => {
-                        const updatedCategory = e.target.value;
-                        setStagingFiles((prev) => prev.map(f => f.id === file.id ? { ...f, metadata: { ...f.metadata, category: updatedCategory } } : f));
-                      }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Version"
-                      className="w-full p-2 border border-gray-300 rounded mb-2"
-                      value={file.metadata.version}
-                      onChange={(e) => {
-                        const updatedVersion = e.target.value;
-                        setStagingFiles((prev) => prev.map(f => f.id === file.id ? { ...f, metadata: { ...f.metadata, version: updatedVersion } } : f));
-                      }}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Enter tags, separated by commas"
-                      className="w-full p-2 border border-gray-300 rounded mb-2"
-                      value={file.tags.join(', ')}
-                      onChange={(e) => {
-                        const updatedTags = e.target.value.split(',').map(tag => tag.trim());
-                        setStagingFiles((prev) => prev.map(f => f.id === file.id ? { ...f, tags: updatedTags } : f));
-                      }}
-                    />
-                    <Button onClick={() => confirmUpload(file)} className="bg-blue-500 text-white">Confirm Upload</Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Document Templates</CardTitle>
+              <CardDescription>Start with pre-approved templates</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {DOCUMENT_TEMPLATES.map(template => (
+                  <div key={template.id} className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium">{template.name}</h3>
+                        <p className="text-sm text-gray-500">{template.description}</p>
+                      </div>
+                      {getFrameworkBadge(template.framework)}
+                    </div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>File Name</TableHead>
-                <TableHead>Uploaded By</TableHead>
-                <TableHead>Date Uploaded</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredDocuments.map((doc) => (
-                <TableRow key={doc.id} onClick={() => handlePreview(doc)} className="cursor-pointer">
-                  <TableCell>{doc.name}</TableCell>
-                  <TableCell>{doc.uploadedBy}</TableCell>
-                  <TableCell>{doc.dateUploaded}</TableCell>
-                  <TableCell>
-                    <Button variant="outline" size="icon" className="mr-2">
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button variant="destructive" size="icon" onClick={() => handleDelete(doc.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-
-        <div className="w-1/3">
           {selectedDocument && (
             <Card>
               <CardHeader>
-                <CardTitle>Preview: {selectedDocument.name}</CardTitle>
+                <CardTitle>Document Details</CardTitle>
+                <CardDescription>{selectedDocument.name}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <p>Last Modified: {selectedDocument.lastModified}</p>
-                <p>Uploaded By: {selectedDocument.uploadedBy}</p>
-                <p>Tags: {selectedDocument.tags.join(', ')}</p>
-                <p>Owner: {selectedDocument.metadata.owner}</p>
-                <p>Description: {selectedDocument.metadata.description}</p>
-                <p>Category: {selectedDocument.metadata.category}</p>
-                <p>Version: {selectedDocument.metadata.version}</p>
-                <div className="mt-4">
-                  <h3 className="text-lg font-semibold">Content:</h3>
-                  <pre className="bg-gray-100 p-2 rounded overflow-auto max-h-48 whitespace-pre-wrap">{documentContent}</pre>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="font-medium mb-2">Validation Results</h3>
+                  <div className="space-y-2">
+                    {selectedDocument.metadata.validationResults.passed.map((result) => (
+                      <div key={result.id} className="flex items-center text-green-600 text-sm">
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        <div>
+                          <p className="font-medium">{result.requirement}</p>
+                          <p className="text-gray-600">{result.details}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {selectedDocument.metadata.validationResults.failed.map((result) => (
+                      <div key={result.id} className="flex items-center text-red-600 text-sm">
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        <div>
+                          <p className="font-medium">{result.requirement}</p>
+                          <p className="text-gray-600">{result.details}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-medium mb-2">Metadata</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="text-gray-500">Owner:</span> {selectedDocument.metadata.owner}</p>
+                    <p><span className="text-gray-500">Category:</span> {selectedDocument.metadata.category}</p>
+                    <p><span className="text-gray-500">Version:</span> {selectedDocument.metadata.version}</p>
+                    <p><span className="text-gray-500">Last Modified:</span> {selectedDocument.lastModified}</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>

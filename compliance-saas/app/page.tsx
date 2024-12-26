@@ -11,6 +11,22 @@ import { mockComplianceData } from '@/lib/mocks/gdpr';
 import { Info, TrendingUp, TrendingDown } from 'lucide-react';
 import { Tooltip } from '@/components/ui/tooltip';
 import ComplianceModal from '@/components/ui/ComplianceModal';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProtectedComponent } from "@/components/auth/ProtectedComponent";
+import { Permissions } from "@/lib/auth";
+import { useSession } from "next-auth/react";
 
 const initialData = {
   companyName: "Jane's Retail Store",
@@ -111,6 +127,11 @@ const Dashboard = () => {
   const [modalTitle, setModalTitle] = useState('');
   const [complianceData, setComplianceData] = useState(mockComplianceData);
   const [selectedFramework, setSelectedFramework] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [companyName, setCompanyName] = useState("Jane's Retail Store");
+  const [companyEmail, setCompanyEmail] = useState("jane@retailstore.com");
+  const [companySize, setCompanySize] = useState("50-100");
+  const { data: session } = useSession();
 
   const fetchComplianceData = useCallback(async () => {
     try {
@@ -149,10 +170,59 @@ const Dashboard = () => {
     <ErrorBoundary>
       <div className="p-6">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Welcome, {data.companyName}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Welcome, {companyName}</h1>
           <div className="mt-4 flex space-x-2">
-            <Button variant="outline" size="sm">Settings</Button>
-            <Button variant="default" size="sm">Generate Report</Button>
+            <ProtectedComponent requiredPermission={Permissions.MANAGE_SETTINGS}>
+              <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">Settings</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[475px]">
+                  <DialogHeader>
+                    <DialogTitle>Company Settings</DialogTitle>
+                    <DialogDescription>
+                      Update your company information and preferences.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="company-name">Company Name</Label>
+                      <Input
+                        id="company-name"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="company-email">Company Email</Label>
+                      <Input
+                        id="company-email"
+                        type="email"
+                        value={companyEmail}
+                        onChange={(e) => setCompanyEmail(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="company-size">Company Size</Label>
+                      <Input
+                        id="company-size"
+                        value={companySize}
+                        onChange={(e) => setCompanySize(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsSettingsOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={() => setIsSettingsOpen(false)}>
+                      Save Changes
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </ProtectedComponent>
+            <Button>Generate Report</Button>
           </div>
         </div>
 

@@ -1,9 +1,7 @@
-"use client"
+"use client";
 
 import { useState } from 'react';
-import { Bell, Menu } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Bell, Settings, User, Search, LogOut } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,72 +10,101 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
-export function TopBar() {
-  const [isOpen, setIsOpen] = useState(false);
+export const TopBar = () => {
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: 'GDPR Compliance Update Required',
+      description: 'New requirements need review',
+      time: '5m ago',
+      unread: true
+    },
+    {
+      id: 2,
+      title: 'Task Deadline Approaching',
+      description: 'Privacy policy update due in 2 days',
+      time: '1h ago',
+      unread: true
+    }
+  ]);
+
+  const unreadCount = notifications.filter(n => n.unread).length;
 
   return (
-    <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
-      <div className="px-4 sm:px-6">
-        <div className="flex justify-between items-center h-16">
-          {/* Mobile menu button*/}
-          <div className="md:hidden">
-            <Button
-              onClick={() => setIsOpen(!isOpen)}
-              variant="ghost"
-              size="icon"
-              className="inline-flex items-center justify-center"
-            >
-              <span className="sr-only">Open main menu</span>
-              <Menu className="h-6 w-6" />
-            </Button>
-          </div>
-
-          {/* Right section */}
-          <div className="flex items-center space-x-4 ml-auto">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
-                5
-              </span>
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="/avatars/01.png" alt="@shadcn" />
-                    <AvatarFallback>SC</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">shadcn</p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      m@example.com
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  Profile Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  Billing
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  Team
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+    <div className="h-16 border-b bg-white px-4 flex items-center justify-between">
+      <div className="flex items-center flex-1">
+        <div className="w-full max-w-lg">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              type="search"
+              placeholder="Search..."
+              className="w-full bg-gray-50 pl-9 focus:bg-white"
+            />
           </div>
         </div>
+      </div>
+
+      <div className="flex items-center space-x-4">
+        {/* Notifications Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center bg-red-500 text-white p-0 text-xs">
+                  {unreadCount}
+                </Badge>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {notifications.map((notification) => (
+              <DropdownMenuItem key={notification.id} className="flex flex-col items-start p-4">
+                <div className="flex items-center w-full">
+                  <span className="font-medium">{notification.title}</span>
+                  {notification.unread && (
+                    <Badge className="ml-auto" variant="secondary">New</Badge>
+                  )}
+                </div>
+                <span className="text-sm text-gray-500 mt-1">{notification.description}</span>
+                <span className="text-xs text-gray-400 mt-2">{notification.time}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* User Menu Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <User className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <User className="mr-2 h-4 w-4" />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-red-600">
+              <LogOut className="mr-2 h-4 w-4" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

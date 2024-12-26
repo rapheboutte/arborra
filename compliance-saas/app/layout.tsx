@@ -1,36 +1,37 @@
-import './globals.css'
-import { Inter } from 'next/font/google'
-import { Sidebar } from '../components/Sidebar'
-import { TopBar } from '../components/TopBar'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { getServerSession } from "next-auth";
+import { SessionProvider } from "@/components/providers/SessionProvider";
+import { authOptions } from "./api/auth/[...nextauth]/route";
+import { RootLayout as ClientRootLayout } from "@/components/RootLayout";
+import { Toaster } from "sonner";
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ["latin"] });
 
-export const metadata = {
-  title: 'ComplianceHub - Compliance Management for SMBs',
-  description: 'Simplify your compliance management with ComplianceHub',
-}
+export const metadata: Metadata = {
+  title: "Arborra - Compliance Management",
+  description: "Compliance management system for businesses",
+};
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
+  const session = await getServerSession(authOptions);
+  const isAuthPage = children.toString().includes("auth/login") || children.toString().includes("auth/error");
+
   return (
-    <html lang="en" className="h-full">
-      <body className={`${inter.className} h-full`}>
-        <TooltipProvider>
-          <div className="flex h-full bg-gray-50">
-            <Sidebar />
-            <div className="flex-1 flex flex-col min-h-0">
-              <TopBar />
-              <main className="flex-1 overflow-auto bg-gray-50">
-                {children}
-              </main>
-            </div>
-          </div>
-        </TooltipProvider>
+    <html lang="en">
+      <body className={inter.className}>
+        <SessionProvider>
+          <ClientRootLayout isAuthPage={isAuthPage}>
+            <Toaster position="top-right" />
+            {children}
+          </ClientRootLayout>
+        </SessionProvider>
       </body>
     </html>
-  )
+  );
 }

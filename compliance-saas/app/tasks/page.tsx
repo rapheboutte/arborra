@@ -1,284 +1,244 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, CheckCircle, Clock, AlertTriangle, Filter, Download, Plus, MoreVertical } from 'lucide-react';
-import { mockComplianceData } from '@/lib/mocks/gdpr';
 
-// Convert compliance requirements to tasks
-const generateTasksFromCompliance = () => {
-  const tasks = [];
-  Object.entries(mockComplianceData).forEach(([framework, data]) => {
-    data.requirements.forEach((req) => {
-      tasks.push({
-        id: req.id,
-        name: req.title,
-        deadline: req.dueDate,
-        status: req.status === 'compliant' ? 'Completed' : 
-                req.status === 'in_progress' ? 'In Progress' : 'Not Started',
-        priority: req.priority === 'high' ? 'High' : 
-                 req.priority === 'medium' ? 'Medium' : 'Low',
-        description: req.description,
-        regulation: framework.toUpperCase(),
-        type: 'Review',
-        assignedUser: '',
-        progress: req.status === 'compliant' ? 100 : 
-                 req.status === 'in_progress' ? 50 : 0,
-        steps: req.actionItems || [],
-        completedSteps: [],
-        nextStep: req.actionItems ? req.actionItems[0] : '',
-        createdAt: new Date().toISOString().split('T')[0],
-        lastUpdated: new Date().toISOString().split('T')[0],
-        comments: [],
-        attachments: [],
-        relatedTasks: []
-      });
-    });
-  });
-  return tasks;
-};
+import { useState } from 'react';
+import { useSession } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { MoreVertical, Filter, Download } from 'lucide-react';
+import { ProtectedComponent } from "@/components/auth/ProtectedComponent";
+import { Permissions } from "@/lib/auth";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
-export default function TaskManagement() {
-  const [tasks, setTasks] = useState(generateTasksFromCompliance());
-  const [selectedView, setSelectedView] = useState('list');
-  const [selectedRegulation, setSelectedRegulation] = useState('All');
-  const [selectedType, setSelectedType] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString();
+}
 
-  const regulations = ['GDPR', 'HIPAA', 'SOX', 'CCPA', 'OSHA'];
-  const taskTypes = ['Review', 'Audit', 'Training', 'Documentation'];
+function getPriorityVariant(priority: string) {
+  switch (priority.toLowerCase()) {
+    case "high":
+      return "destructive";
+    case "medium":
+      return "warning";
+    case "low":
+      return "secondary";
+    default:
+      return "secondary";
+  }
+}
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'In Progress':
-        return <Clock className="w-4 h-4 text-blue-500" />;
-      case 'Not Started':
-        return <AlertCircle className="w-4 h-4 text-gray-500" />;
-      case 'Overdue':
-        return <AlertTriangle className="w-4 h-4 text-red-500" />;
-      default:
-        return null;
-    }
-  };
+export default function TasksPage() {
+  const { data: session } = useSession();
+  const [tasks, setTasks] = useState([
+    {
+      id: 1,
+      title: "Data Protection Impact Assessment",
+      deadline: "2025-01-01",
+      priority: "High",
+      status: "In Progress",
+      progress: 50,
+      regulation: "GDPR",
+      type: "Review"
+    },
+    {
+      id: 2,
+      title: "Data Processing Records Update",
+      deadline: "2025-02-14",
+      priority: "Medium",
+      status: "Not Started",
+      progress: 0,
+      regulation: "GDPR",
+      type: "Review"
+    },
+    // Add other tasks as shown in the image
+  ]);
 
-  const getPriorityBadge = (priority) => {
-    const colors = {
-      High: 'bg-red-100 text-red-800',
-      Medium: 'bg-yellow-100 text-yellow-800',
-      Low: 'bg-green-100 text-green-800'
-    };
-    return (
-      <Badge className={colors[priority] || 'bg-gray-100'}>
-        {priority}
-      </Badge>
-    );
-  };
-
-  const filteredTasks = tasks.filter(task => {
-    const matchesRegulation = selectedRegulation === 'All' || task.regulation === selectedRegulation;
-    const matchesType = selectedType === 'All' || task.type === selectedType;
-    const matchesSearch = !searchQuery || 
-      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesRegulation && matchesType && matchesSearch;
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: "",
+    deadline: "",
+    priority: "Medium",
+    regulation: "GDPR",
+    type: "Review",
+    status: "Not Started",
+    progress: 0
   });
 
-  const completedTasks = tasks.filter(t => t.status === 'Completed').length;
-  const inProgressTasks = tasks.filter(t => t.status === 'In Progress').length;
-  const notStartedTasks = tasks.filter(t => t.status === 'Not Started').length;
-  const overdueTasks = tasks.filter(t => 
-    new Date(t.deadline) < new Date() && t.status !== 'Completed'
-  ).length;
+  const [selectedRegulation, setSelectedRegulation] = useState("All Regulations");
+  const [selectedType, setSelectedType] = useState("All Types");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const TaskDialog = ({ task, isOpen, onClose }) => {
-    if (!task) return null;
+  const completedTasks = tasks.filter(t => t.status === "Completed").length;
+  const inProgressTasks = tasks.filter(t => t.status === "In Progress").length;
+  const overdueTasks = tasks.filter(t => new Date(t.deadline) < new Date()).length;
+
+  const handleAddTask = () => {
+    if (!session) return;
     
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {getStatusIcon(task.status)}
-              {task.name}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Status</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  {getStatusIcon(task.status)}
-                  {task.status}
-                </div>
-              </div>
-              <div>
-                <Label>Priority</Label>
-                <div className="mt-1">
-                  {getPriorityBadge(task.priority)}
-                </div>
-              </div>
-              <div>
-                <Label>Deadline</Label>
-                <div className="mt-1">
-                  {new Date(task.deadline).toLocaleDateString()}
-                </div>
-              </div>
-              <div>
-                <Label>Regulation</Label>
-                <div className="mt-1">
-                  {task.regulation}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label>Description</Label>
-              <p className="mt-1 text-gray-600">{task.description}</p>
-            </div>
-
-            <div>
-              <Label>Required Steps</Label>
-              <div className="mt-2 space-y-2">
-                {task.steps.map((step, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={task.completedSteps.includes(step)}
-                      onChange={() => {
-                        const newTask = { ...task };
-                        if (task.completedSteps.includes(step)) {
-                          newTask.completedSteps = task.completedSteps.filter(s => s !== step);
-                        } else {
-                          newTask.completedSteps = [...task.completedSteps, step];
-                        }
-                        newTask.progress = Math.round((newTask.completedSteps.length / task.steps.length) * 100);
-                        newTask.status = newTask.progress === 100 ? 'Completed' : 'In Progress';
-                        setTasks(tasks.map(t => t.id === task.id ? newTask : t));
-                      }}
-                    />
-                    <span>{step}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <Label>Progress</Label>
-              <div className="mt-2">
-                <Progress value={task.progress} className="h-2" />
-                <span className="text-sm text-gray-500 mt-1">{task.progress}% Complete</span>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Close</Button>
-            <Button 
-              onClick={() => {
-                const newTask = { ...task, status: 'Completed', progress: 100 };
-                setTasks(tasks.map(t => t.id === task.id ? newTask : t));
-                onClose();
-              }}
-              disabled={task.status === 'Completed'}
-            >
-              Mark as Complete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
+    setTasks([...tasks, { ...newTask, id: tasks.length + 1 }]);
+    setNewTask({
+      title: "",
+      deadline: "",
+      priority: "Medium",
+      regulation: "GDPR",
+      type: "Review",
+      status: "Not Started",
+      progress: 0
+    });
+    setIsAddTaskOpen(false);
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Task Management</h1>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Filter className="w-4 h-4 mr-2" />
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-2xl font-semibold">Task Management</h1>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" className="flex items-center gap-2">
+            <Filter className="h-4 w-4" />
             Save Filter
           </Button>
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
+          <Button variant="outline" className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
             Export
           </Button>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Task
-          </Button>
+          <ProtectedComponent requiredPermission={Permissions.CREATE_TASKS}>
+            <Dialog open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen}>
+              <DialogTrigger asChild>
+                <Button variant="default" className="bg-blue-600">Add Task</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[475px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Task</DialogTitle>
+                  <DialogDescription>
+                    Create a new compliance task with the details below.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="task-title">Task Title</Label>
+                    <Input
+                      id="task-title"
+                      value={newTask.title}
+                      onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="deadline">Deadline</Label>
+                    <Input
+                      id="deadline"
+                      type="date"
+                      value={newTask.deadline}
+                      onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select
+                      value={newTask.priority}
+                      onValueChange={(value) => setNewTask({ ...newTask, priority: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Low">Low</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="High">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="regulation">Regulation</Label>
+                    <Select
+                      value={newTask.regulation}
+                      onValueChange={(value) => setNewTask({ ...newTask, regulation: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select regulation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="GDPR">GDPR</SelectItem>
+                        <SelectItem value="HIPAA">HIPAA</SelectItem>
+                        <SelectItem value="SOX">SOX</SelectItem>
+                        <SelectItem value="CCPA">CCPA</SelectItem>
+                        <SelectItem value="OSHA">OSHA</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddTaskOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddTask}>Add Task</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </ProtectedComponent>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{tasks.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-500">Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{completedTasks}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-blue-500">In Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{inProgressTasks}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-red-500">Overdue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{overdueTasks}</div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="text-sm text-gray-500">Total Tasks</div>
+          <div className="text-2xl font-semibold">{tasks.length}</div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="text-sm text-gray-500">Completed</div>
+          <div className="text-2xl font-semibold text-green-600">{completedTasks}</div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="text-sm text-gray-500">In Progress</div>
+          <div className="text-2xl font-semibold text-blue-600">{inProgressTasks}</div>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div className="text-sm text-gray-500">Overdue</div>
+          <div className="text-2xl font-semibold text-red-600">{overdueTasks}</div>
+        </div>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-4 mb-8">
         <Select value={selectedRegulation} onValueChange={setSelectedRegulation}>
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by Regulation" />
+            <SelectValue placeholder="All Regulations" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Regulations</SelectItem>
-            {regulations.map(reg => (
-              <SelectItem key={reg} value={reg}>{reg}</SelectItem>
-            ))}
+            <SelectItem value="GDPR">GDPR</SelectItem>
+            <SelectItem value="HIPAA">HIPAA</SelectItem>
+            <SelectItem value="SOX">SOX</SelectItem>
+            <SelectItem value="CCPA">CCPA</SelectItem>
+            <SelectItem value="OSHA">OSHA</SelectItem>
           </SelectContent>
         </Select>
 
         <Select value={selectedType} onValueChange={setSelectedType}>
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by Type" />
+            <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Types</SelectItem>
-            {taskTypes.map(type => (
-              <SelectItem key={type} value={type}>{type}</SelectItem>
-            ))}
+            <SelectItem value="Review">Review</SelectItem>
+            <SelectItem value="Update">Update</SelectItem>
+            <SelectItem value="Implementation">Implementation</SelectItem>
           </SelectContent>
         </Select>
 
@@ -286,70 +246,73 @@ export default function TaskManagement() {
           placeholder="Search tasks..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-[300px]"
+          className="flex-1"
         />
       </div>
 
-      <div className="bg-white rounded-lg border">
+      <div className="bg-white rounded-lg shadow-sm">
+        <div className="p-4 flex gap-4 border-b">
+          <Input placeholder="Search tasks..." className="max-w-sm" />
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Task</TableHead>
-              <TableHead>Deadline</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Progress</TableHead>
-              <TableHead>Regulation</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              <TableHead className="w-[300px]">Task</TableHead>
+              <TableHead className="w-[120px]">Deadline</TableHead>
+              <TableHead className="w-[100px]">Priority</TableHead>
+              <TableHead className="w-[120px]">Status</TableHead>
+              <TableHead className="w-[200px]">Progress</TableHead>
+              <TableHead className="w-[120px]">Regulation</TableHead>
+              <TableHead className="w-[100px]">Type</TableHead>
+              <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTasks.map((task) => (
-              <TableRow 
-                key={task.id}
-                className="cursor-pointer hover:bg-gray-50"
-                onClick={() => {
-                  setSelectedTask(task);
-                  setIsTaskDialogOpen(true);
-                }}
-              >
-                <TableCell className="font-medium">{task.name}</TableCell>
-                <TableCell>{new Date(task.deadline).toLocaleDateString()}</TableCell>
-                <TableCell>{getPriorityBadge(task.priority)}</TableCell>
+            {tasks.map((task) => (
+              <TableRow key={task.id}>
+                <TableCell className="font-medium">{task.title}</TableCell>
+                <TableCell>{formatDate(task.deadline)}</TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(task.status)}
+                  <Badge
+                    variant={getPriorityVariant(task.priority)}
+                    className="capitalize"
+                  >
+                    {task.priority}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <div
+                      className={`h-2 w-2 rounded-full mr-2 ${
+                        task.status === "In Progress"
+                          ? "bg-blue-500"
+                          : task.status === "Completed"
+                          ? "bg-green-500"
+                          : "bg-gray-300"
+                      }`}
+                    />
                     {task.status}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Progress value={task.progress} className="w-[100px] h-2" />
-                    <span className="text-sm text-gray-500">{task.progress}%</span>
+                  <div className="w-[150px]">
+                    <Progress value={task.progress} className="h-2" />
                   </div>
                 </TableCell>
                 <TableCell>{task.regulation}</TableCell>
                 <TableCell>{task.type}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
+                <TableCell className="text-right">
+                  <ProtectedComponent requiredPermission={Permissions.EDIT_TASKS}>
+                    <Button variant="ghost" size="icon">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </ProtectedComponent>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
-
-      <TaskDialog
-        task={selectedTask}
-        isOpen={isTaskDialogOpen}
-        onClose={() => {
-          setSelectedTask(null);
-          setIsTaskDialogOpen(false);
-        }}
-      />
     </div>
   );
 }
