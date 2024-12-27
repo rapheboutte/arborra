@@ -10,10 +10,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 export default function ReportsPage() {
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div className="flex-1 space-y-4 p-8 pt-24">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Compliance Analytics</h2>
-        <CalendarDateRangePicker />
+        <div className="flex items-center gap-4">
+          <CalendarDateRangePicker />
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm">
+              <Download className="mr-2 h-4 w-4" />
+              Export PDF
+            </Button>
+            <Button variant="outline" size="sm">
+              <FileText className="mr-2 h-4 w-4" />
+              Export Excel
+            </Button>
+            <Button>
+              Schedule Report
+            </Button>
+          </div>
+        </div>
       </div>
       
       <Tabs defaultValue="overview" className="space-y-4">
@@ -270,18 +285,6 @@ export default function ReportsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <div className="flex justify-end space-x-2">
-        <Button variant="outline" className="flex items-center gap-2">
-          <Download className="h-4 w-4" /> Export PDF
-        </Button>
-        <Button variant="outline" className="flex items-center gap-2">
-          <FileText className="h-4 w-4" /> Export Excel
-        </Button>
-        <Button className="flex items-center gap-2">
-          Schedule Report
-        </Button>
-      </div>
     </div>
   )
 }

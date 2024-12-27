@@ -3,8 +3,7 @@
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
-import { TopBar } from "@/components/TopBar";
-import { TooltipProvider } from "@/components/providers/TooltipProvider";
+import { HeaderMenu } from "@/components/HeaderMenu";
 
 export function RootLayout({
   children,
@@ -23,15 +22,23 @@ export function RootLayout({
     );
   }
 
+  if (!session && !isAuthPage) {
+    return null;
+  }
+
   return (
-    <div className="flex h-screen">
-      {session && !isAuthPage && <Sidebar />}
-      <div className="flex-1 flex flex-col min-h-0">
-        {session && !isAuthPage && <TopBar />}
-        <main className={`flex-1 overflow-auto ${!isAuthPage ? 'bg-gray-50' : ''}`}>
-          <TooltipProvider>{children}</TooltipProvider>
-        </main>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      {!isAuthPage && (
+        <div className="fixed inset-y-0 z-50 flex">
+          <Sidebar />
+        </div>
+      )}
+      <main className={`flex min-h-screen flex-col ${!isAuthPage ? 'ml-[240px]' : ''}`}>
+        {!isAuthPage && <HeaderMenu />}
+        <div className="flex-1">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

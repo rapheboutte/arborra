@@ -1,51 +1,52 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import { withAuth } from 'next-auth/middleware';
+import { NextResponse } from 'next/server';
 
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
-    const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
+    const isAuth = !!token;
+    const isAuthPage = req.nextUrl.pathname.startsWith('/login');
+    const isAdminPage = req.nextUrl.pathname.startsWith('/admin');
+    const isAdmin = token?.role === 'Admin';
 
-    // Redirect authenticated users away from auth pages
-    if (token && isAuthPage) {
-      return NextResponse.redirect(new URL("/", req.url));
+    if (isAuthPage) {
+      if (isAuth) {
+        return NextResponse.redirect(new URL('/dashboard', req.url));
+      }
+      return null;
     }
 
-    return NextResponse.next();
+    if (!isAuth) {
+      let from = req.nextUrl.pathname;
+      if (req.nextUrl.search) {
+        from += req.nextUrl.search;
+      }
+
+      return NextResponse.redirect(
+        new URL(`/login?from=${encodeURIComponent(from)}`, req.url)
+      );
+    }
+
+    if (isAdminPage && !isAdmin) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+
+    return null;
   },
   {
     callbacks: {
-      authorized: ({ req, token }) => {
-        const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
-        const isPublicPage = ["/"].includes(req.nextUrl.pathname);
-
-        // Always allow access to auth pages
-        if (isAuthPage) {
-          return true;
-        }
-
-        // Allow access to public pages
-        if (isPublicPage) {
-          return true;
-        }
-
-        // Require token for all other pages
-        return !!token;
-      },
+      authorized: ({ token }) => !!token,
     },
   }
 );
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api/auth (authentication routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|public).*)",
+    '/dashboard/:path*',
+    '/admin/:path*',
+    '/tasks/:path*',
+    '/compliance/:path*',
+    '/reports/:path*',
+    '/login',
   ],
 };

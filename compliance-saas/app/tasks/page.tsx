@@ -107,7 +107,7 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="p-8">
+    <div className="flex-1 space-y-6 p-8 pt-24">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-semibold">Task Management</h1>
         <div className="flex items-center gap-4">

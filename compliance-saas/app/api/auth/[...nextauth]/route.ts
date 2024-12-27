@@ -33,7 +33,8 @@ export const authOptions: NextAuthOptions = {
             email: credentials.email
           },
           include: {
-            organization: true
+            role: true,
+            organization: true,
           }
         });
 
@@ -54,8 +55,8 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role?.name || null,
           organizationId: user.organizationId,
-          role: user.role
         };
       }
     })
@@ -63,45 +64,24 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          organizationId: user.organizationId,
-          role: user.role
-        };
+        token.id = user.id;
+        token.role = user.role;
+        token.organizationId = user.organizationId;
       }
       return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          organizationId: token.organizationId,
-          role: token.role
-        }
-      };
-    }
-  },
-  cookies: {
-    sessionToken: {
-      name: process.env.NODE_ENV === 'production' 
-        ? '__Secure-next-auth.session-token'
-        : 'next-auth.session-token',
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === 'production'
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role;
+        session.user.organizationId = token.organizationId as string;
       }
-    }
+      return session;
+    },
   },
   pages: {
-    signIn: "/auth/login",
-    error: "/auth/error"
+    signIn: '/auth/login',
   },
-  debug: true
 };
 
 const handler = NextAuth(authOptions);

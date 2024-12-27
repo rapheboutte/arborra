@@ -1,53 +1,56 @@
 export interface ComplianceRequirement {
   id: string;
   title: string;
-  description: string;
-  category: string;
-  status: 'compliant' | 'non_compliant' | 'in_progress' | 'not_started';
+  description?: string;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLIANT' | 'NON_COMPLIANT' | 'REQUIRES_REVIEW';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   dueDate?: string;
+  documents?: ComplianceDocument[];
+  tasks?: ComplianceTask[];
   lastUpdated: string;
-  priority: 'high' | 'medium' | 'low';
-  assignedTo?: string;
 }
 
-export interface ComplianceFramework {
+export interface ComplianceDocument {
   id: string;
-  name: string;
-  description: string;
-  category: string;
-  requirements: ComplianceRequirement[];
-  overallScore: number;
-  lastAssessment: string;
+  title: string;
+  description?: string;
+  fileUrl: string;
+  fileType: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  requirements?: ComplianceRequirement[];
+  tasks?: ComplianceTask[];
+}
+
+export interface ComplianceTask {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  dueDate?: string;
+  assignedTo?: string;
+  createdBy: string;
+  createdAt: string;
+  completedAt?: string;
 }
 
 export interface ComplianceUpdate {
-  id: string;
-  frameworkId: string;
-  type: 'requirement_change' | 'deadline_update' | 'new_regulation';
-  description: string;
   date: string;
-  impact: 'high' | 'medium' | 'low';
-  actionRequired: boolean;
-}
-
-export interface ComplianceStats {
-  totalRequirements: number;
-  compliantCount: number;
-  nonCompliantCount: number;
-  inProgressCount: number;
-  upcomingDeadlines: number;
-  criticalIssues: number;
+  type: 'requirement' | 'enforcement' | 'deadline' | 'other';
+  description: string;
 }
 
 export interface ComplianceData {
-  timestamp: string;
-  authority: string;
-  actionType: string;
-  details: {
-    citation: string;
-    violationType: string;
-    status: string;
-  };
+  complianceScore: number;
+  status: 'active' | 'inactive';
+  requirements: ComplianceRequirement[];
+  documents: ComplianceDocument[];
+  recentUpdates: ComplianceUpdate[];
+}
+
+export interface ComplianceOverview {
+  [framework: string]: ComplianceData;
 }
 
 export interface ApiResponse<T> {

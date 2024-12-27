@@ -1,35 +1,26 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-import { getServerSession } from "next-auth";
-import { SessionProvider } from "@/components/providers/SessionProvider";
-import { authOptions } from "./api/auth/[...nextauth]/route";
-import { RootLayout as ClientRootLayout } from "@/components/RootLayout";
-import { Toaster } from "sonner";
+import { Inter } from "next/font/google";
+import { Providers } from "./providers";
+import { RootLayout } from "@/components/RootLayout";
+import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({ subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: "Arborra - Compliance Management",
-  description: "Compliance management system for businesses",
+export const metadata = {
+  title: "Arborra",
+  description: "Compliance Management Platform",
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const session = await getServerSession(authOptions);
-  
+export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SessionProvider session={session}>
-          <ClientRootLayout>
-            <Toaster position="top-right" />
+        <Providers>
+          <RootLayout>
             {children}
-          </ClientRootLayout>
-        </SessionProvider>
+            <Toaster />
+          </RootLayout>
+        </Providers>
       </body>
     </html>
   );

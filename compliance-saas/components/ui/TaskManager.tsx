@@ -42,6 +42,19 @@ export function TaskManager({ task, onClose, onTaskUpdate }: TaskManagerProps) {
     framework: "GDPR",
     status: "Not Started"
   });
+  const [error, setError] = useState('');
+
+  const validateNewTask = () => {
+    if (!newTask.title.trim()) {
+      setError('Task title is required');
+      return false;
+    }
+    if (!newTask.dueDate) {
+      setError('Due date is required');
+      return false;
+    }
+    return true;
+  };
 
   const handleStepToggle = (stepId: string) => {
     const updatedSteps = currentTask.steps.map(step =>
@@ -69,7 +82,20 @@ export function TaskManager({ task, onClose, onTaskUpdate }: TaskManagerProps) {
   };
 
   const handleAddTask = () => {
-    setTasks([...tasks, { ...newTask, id: tasks.length + 1 }]);
+    if (!validateNewTask()) return;
+
+    const taskToAdd = {
+      id: `task-${Date.now()}`,
+      title: newTask.title,
+      description: '',
+      priority: newTask.priority,
+      dueDate: newTask.dueDate,
+      framework: newTask.framework,
+      status: 'not_started',
+      steps: []
+    };
+
+    onTaskUpdate(taskToAdd);
     setNewTask({
       title: "",
       dueDate: "",
@@ -77,6 +103,7 @@ export function TaskManager({ task, onClose, onTaskUpdate }: TaskManagerProps) {
       framework: "GDPR",
       status: "Not Started"
     });
+    setError('');
     setIsAddTaskOpen(false);
   };
 
@@ -96,6 +123,11 @@ export function TaskManager({ task, onClose, onTaskUpdate }: TaskManagerProps) {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              {error && (
+                <div className="text-sm text-red-600">
+                  {error}
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="task-title">Task Title</Label>
                 <Input

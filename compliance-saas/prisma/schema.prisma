@@ -1,11 +1,13 @@
-// This is your Prisma schema file
-datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
-}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model Account {
@@ -36,20 +38,22 @@ model Session {
 }
 
 model User {
-  id             String    @id @default(cuid())
-  name           String?
-  email          String?   @unique
-  emailVerified  DateTime?
-  image          String?
-  password       String?
-  role           String    @default("user")
-  organizationId String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  
-  accounts       Account[]
-  sessions       Session[]
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  id                 String               @id @default(cuid())
+  name               String?
+  email              String?              @unique
+  emailVerified      DateTime?
+  image              String?
+  password           String?
+  organizationId     String?
+  roleId             String?
+  accounts           Account[]
+  sessions           Session[]
+  organization       Organization?        @relation(fields: [organizationId], references: [id])
+  role               Role?               @relation(fields: [roleId], references: [id])
+  uploadedDocuments  Document[]          @relation("UploadedBy")
+  assignedTasks      Task[]              @relation("AssignedTo")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model VerificationToken {
@@ -61,31 +65,101 @@ model VerificationToken {
 }
 
 model Organization {
-  id          String   @id @default(cuid())
-  name        String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String        @id @default(cuid())
+  name        String        @unique
   users       User[]
-  settings    Settings?
+  settings    OrganizationSettings?
+  frameworks  ComplianceFramework[]
+  roles       Role[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
-model Settings {
+model OrganizationSettings {
+  id            String      @id @default(cuid())
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String      @unique
+  GDPRApiKey    String?
+  HIPAAApiKey   String?
+  CCPAApiKey    String?
+  SOXApiKey     String?
+  OSHAApiKey    String?
+}
+
+model Role {
+  id            String       @id @default(cuid())
+  name          String
+  description   String      @default("")
+  permissions   Permission[]
+  users         User[]
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String
+  role        Role     @relation(fields: [roleId], references: [id])
+  roleId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ComplianceFramework {
   id             String   @id @default(cuid())
-  organizationId String   @unique
+  name           String
+  description    String
+  enabled        Boolean  @default(true)
+  organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
-  
-  // Organization settings
-  companyName    String?
-  companyEmail   String?
-  companySize    String?
-  
-  // Compliance framework settings
-  gdprEnabled    Boolean  @default(false)
-  hipaaEnabled   Boolean  @default(false)
-  soxEnabled     Boolean  @default(false)
-  ccpaEnabled    Boolean  @default(false)
-  oshaEnabled    Boolean  @default(false)
-  
+  requirements   ComplianceRequirement[]
+  documents      Document[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([name, organizationId])
+}
+
+model ComplianceRequirement {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  status      String   @default("NOT_STARTED")
+  priority    String   @default("MEDIUM")
+  dueDate     DateTime?
+  frameworkId String
+  framework   ComplianceFramework @relation(fields: [frameworkId], references: [id])
+  documents   Document[]
+  tasks       Task[]
+}
+
+model Document {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  fileUrl       String
+  fileType      String
+  uploadedById  String
+  uploadedBy    User     @relation("UploadedBy", fields: [uploadedById], references: [id])
+  frameworkId   String
+  framework     ComplianceFramework @relation(fields: [frameworkId], references: [id])
+  requirements  ComplianceRequirement[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Task {
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  status         String   @default("NOT_STARTED")
+  dueDate        DateTime?
+  assignedToId   String?
+  assignedTo     User?    @relation("AssignedTo", fields: [assignedToId], references: [id])
+  requirementId  String
+  requirement    ComplianceRequirement @relation(fields: [requirementId], references: [id])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
