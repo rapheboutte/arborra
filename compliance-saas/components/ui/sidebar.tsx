@@ -3,7 +3,19 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import { PanelLeft } from "lucide-react"
+import { 
+  LayoutDashboard,
+  CheckSquare,
+  FileText,
+  BarChart,
+  ScrollText,
+  Users,
+  Settings,
+  Shield,
+  Menu
+} from "lucide-react"
+import { usePathname } from 'next/navigation'
+import Link from 'next/link'
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -100,7 +112,7 @@ const SidebarProvider = React.forwardRef<
     React.useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
         if (
-          event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
+          event.key.toLowerCase() === SIDEBAR_KEYBOARD_SHORTCUT &&
           (event.metaKey || event.ctrlKey)
         ) {
           event.preventDefault()
@@ -112,49 +124,50 @@ const SidebarProvider = React.forwardRef<
       return () => window.removeEventListener("keydown", handleKeyDown)
     }, [toggleSidebar])
 
-    // We add a state so that we can do data-state="expanded" or "collapsed".
-    // This makes it easier to style the sidebar with Tailwind classes.
     const state = open ? "expanded" : "collapsed"
-
-    const contextValue = React.useMemo<SidebarContext>(
+    const value = React.useMemo(
       () => ({
         state,
         open,
         setOpen,
-        isMobile,
         openMobile,
         setOpenMobile,
+        isMobile,
         toggleSidebar,
       }),
-      [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+      [state, open, setOpen, openMobile, setOpenMobile, isMobile, toggleSidebar]
     )
 
     return (
-      <SidebarContext.Provider value={contextValue}>
-        <TooltipProvider delayDuration={0}>
-          <div
-            style={
-              {
-                "--sidebar-width": SIDEBAR_WIDTH,
-                "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-                ...style,
-              } as React.CSSProperties
-            }
-            className={cn(
-              "group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
-              className
-            )}
-            ref={ref}
-            {...props}
-          >
-            {children}
-          </div>
-        </TooltipProvider>
+      <SidebarContext.Provider value={value}>
+        <div
+          ref={ref}
+          className={className}
+          style={{
+            ...style,
+            "--sidebar-width": SIDEBAR_WIDTH,
+            "--sidebar-width-mobile": SIDEBAR_WIDTH_MOBILE,
+            "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+          } as React.CSSProperties}
+          {...props}
+        >
+          {children}
+        </div>
       </SidebarContext.Provider>
     )
   }
 )
 SidebarProvider.displayName = "SidebarProvider"
+
+const navigationItems = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Task Manager', href: '/tasks', icon: CheckSquare },
+  { label: 'Document Center', href: '/documents', icon: FileText },
+  { label: 'Compliance Reports', href: '/reports', icon: BarChart },
+  { label: 'Audit Logs', href: '/audit', icon: ScrollText },
+  { label: 'Team', href: '/team', icon: Users },
+  { label: 'Settings', href: '/settings', icon: Settings },
+]
 
 const Sidebar = React.forwardRef<
   HTMLDivElement,
@@ -176,6 +189,42 @@ const Sidebar = React.forwardRef<
     ref
   ) => {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    const pathname = usePathname()
+
+    const renderContent = () => (
+      <div className="flex h-full flex-col">
+        <div className="flex h-14 items-center justify-between border-b px-4">
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-blue-600" />
+            <span className="font-semibold">ComplianceSaaS</span>
+          </div>
+          <SidebarTrigger />
+        </div>
+        <div className="flex-1 overflow-auto py-2">
+          {navigationItems.map((item) => {
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 text-sm transition-colors",
+                  isActive 
+                    ? "bg-gray-100 text-gray-900 font-medium"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                )}
+              >
+                <item.icon className={cn(
+                  "h-4 w-4",
+                  isActive ? "text-blue-600" : "text-gray-400"
+                )} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+    )
 
     if (collapsible === "none") {
       return (
@@ -187,7 +236,7 @@ const Sidebar = React.forwardRef<
           ref={ref}
           {...props}
         >
-          {children}
+          {renderContent()}
         </div>
       )
     }
@@ -206,7 +255,7 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
-            <div className="flex h-full w-full flex-col">{children}</div>
+            {renderContent()}
           </SheetContent>
         </Sheet>
       )
@@ -221,7 +270,6 @@ const Sidebar = React.forwardRef<
         data-variant={variant}
         data-side={side}
       >
-        {/* This is what handles the sidebar gap on desktop */}
         <div
           className={cn(
             "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear",
@@ -238,7 +286,6 @@ const Sidebar = React.forwardRef<
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
-            // Adjust the padding for floating and inset variants.
             variant === "floating" || variant === "inset"
               ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4)_+2px)]"
               : "group-data-[collapsible=icon]:w-[--sidebar-width-icon] group-data-[side=left]:border-r group-data-[side=right]:border-l",
@@ -250,7 +297,7 @@ const Sidebar = React.forwardRef<
             data-sidebar="sidebar"
             className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
           >
-            {children}
+            {renderContent()}
           </div>
         </div>
       </div>
@@ -278,7 +325,7 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-      <PanelLeft />
+      <Menu />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
@@ -323,7 +370,7 @@ const SidebarInset = React.forwardRef<
       ref={ref}
       className={cn(
         "relative flex min-h-svh flex-1 flex-col bg-background",
-        "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
+        "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
         className
       )}
       {...props}
@@ -735,6 +782,72 @@ const SidebarMenuSubButton = React.forwardRef<
 })
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton"
 
+export function NewSidebar() {
+  const pathname = usePathname()
+  const [isCollapsed, setIsCollapsed] = React.useState(false)
+
+  return (
+    <div className={cn(
+      "flex h-screen flex-col border-r bg-white transition-all duration-300",
+      isCollapsed ? "w-16" : "w-64"
+    )}>
+      {/* Header */}
+      <div className="flex h-14 items-center justify-between border-b px-4">
+        <div className={cn(
+          "flex items-center gap-2 overflow-hidden",
+          isCollapsed && "opacity-0"
+        )}>
+          <Shield className="h-5 w-5 flex-shrink-0 text-blue-600" />
+          <span className="font-semibold truncate">ComplianceSaaS</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="h-8 w-8 p-0"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 space-y-1 p-2">
+        {navigationItems.map((item) => {
+          const isActive = pathname === item.href
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors relative group",
+                isActive 
+                  ? "bg-gray-100 text-gray-900 font-medium"
+                  : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+              )}
+            >
+              <item.icon className={cn(
+                "h-4 w-4 flex-shrink-0",
+                isActive ? "text-blue-600" : "text-gray-400"
+              )} />
+              <span className={cn(
+                "truncate transition-opacity",
+                isCollapsed ? "opacity-0 w-0" : "opacity-100"
+              )}>
+                {item.label}
+              </span>
+              {isCollapsed && (
+                <div className="absolute left-full ml-2 hidden rounded-md bg-gray-900 px-2 py-1 text-xs text-white group-hover:block">
+                  {item.label}
+                </div>
+              )}
+            </Link>
+          )
+        })}
+      </nav>
+    </div>
+  )
+}
+
 export {
   Sidebar,
   SidebarContent,
@@ -760,4 +873,5 @@ export {
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
+  NewSidebar,
 }

@@ -1,119 +1,131 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ComplianceData } from "@/types/compliance";
-import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
-import "react-circular-progressbar/dist/styles.css";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { ComplianceOverview } from '@/types/compliance';
+import { withCache } from '@/lib/utils/api-utils';
+import { ComplianceService } from '@/lib/services/compliance';
 
 interface ComplianceCardProps {
   framework: string;
-  data: ComplianceData;
-  onViewDetails: (framework: string, data: ComplianceData) => void;
+  organizationId: string;
 }
 
-const frameworkInfo = {
-  GDPR: {
-    title: "GDPR",
-    description: "General Data Protection Regulation",
-    icon: "🇪🇺",
-  },
-  HIPAA: {
-    title: "HIPAA",
-    description: "Health Insurance Portability and Accountability Act",
-    icon: "🏥",
-  },
-  CCPA: {
-    title: "CCPA",
-    description: "California Consumer Privacy Act",
-    icon: "🔒",
-  },
-  SOX: {
-    title: "SOX",
-    description: "Sarbanes-Oxley Act",
-    icon: "📊",
-  },
-  OSHA: {
-    title: "OSHA",
-    description: "Occupational Safety and Health Administration",
-    icon: "⚡",
-  },
-};
+export function ComplianceCard({ framework, organizationId }: ComplianceCardProps) {
+  const [data, setData] = useState<ComplianceOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const ComplianceCard = ({ framework, data, onViewDetails }: ComplianceCardProps) => {
-  const info = frameworkInfo[framework as keyof typeof frameworkInfo];
-  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const complianceService = new ComplianceService();
+        const overview = await complianceService.getComplianceOverview(organizationId, framework);
+        setData(overview);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch compliance data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [framework, organizationId]);
+
+  if (loading) {
+    return (
+      <Card className="w-full">
+        <CardContent className="p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div className="h-8 bg-gray-200 rounded"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+              <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full bg-red-50">
+        <CardContent className="p-6">
+          <p className="text-red-600">Error: {error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
   const getScoreColor = (score: number) => {
-    if (score >= 90) return "#10B981"; // Green
-    if (score >= 70) return "#F59E0B"; // Yellow
-    return "#EF4444"; // Red
+    if (score >= 80) return 'bg-green-500';
+    if (score >= 60) return 'bg-yellow-500';
+    return 'bg-red-500';
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800";
-      case "inactive":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-yellow-100 text-yellow-800";
-    }
+  const getStatusBadge = (status: string) => {
+    const colors = {
+      active: 'bg-green-100 text-green-800',
+      inactive: 'bg-gray-100 text-gray-800',
+    };
+    return colors[status as keyof typeof colors] || colors.inactive;
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="text-2xl">{info.icon}</span>
-            <div>
-              <CardTitle>{info.title}</CardTitle>
-              <p className="text-sm text-gray-500">{info.description}</p>
-            </div>
-          </div>
-          <Badge className={getStatusBadgeColor(data.status)}>
-            {data.status.charAt(0).toUpperCase() + data.status.slice(1)}
-          </Badge>
-        </div>
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-xl font-bold">{framework}</CardTitle>
+        <Badge className={getStatusBadge(data.status)}>{data.status}</Badge>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center justify-center">
-            <div style={{ width: 80, height: 80 }}>
-              <CircularProgressbar
-                value={data.complianceScore}
-                text={`${data.complianceScore}%`}
-                styles={buildStyles({
-                  textSize: "24px",
-                  pathColor: getScoreColor(data.complianceScore),
-                  textColor: getScoreColor(data.complianceScore),
-                })}
-              />
+        <div className="space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500">Compliance Score</span>
+              <span className="text-lg font-bold">{data.complianceScore}%</span>
             </div>
+            <Progress
+              value={data.complianceScore}
+              className={`h-2 ${getScoreColor(data.complianceScore)}`}
+            />
           </div>
-          <div className="space-y-2">
+
+          <div className="grid grid-cols-2 gap-4 pt-4">
             <div>
               <p className="text-sm text-gray-500">Requirements</p>
-              <p className="text-lg font-semibold">{data.requirements.length}</p>
+              <p className="text-lg font-semibold">
+                {data.completedRequirements}/{data.totalRequirements}
+              </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Documents</p>
-              <p className="text-lg font-semibold">{data.documents.length}</p>
+              <p className="text-sm text-gray-500">Critical Findings</p>
+              <p className="text-lg font-semibold">{data.criticalFindings}</p>
             </div>
           </div>
-        </div>
 
-        <div className="mt-4">
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => onViewDetails(framework, data)}
-          >
-            View Details
-          </Button>
+          {data.upcomingDeadlines.length > 0 && (
+            <div className="pt-4">
+              <p className="text-sm font-medium mb-2">Upcoming Deadlines</p>
+              <ul className="space-y-2">
+                {data.upcomingDeadlines.slice(0, 2).map((deadline, index) => (
+                  <li key={index} className="text-sm">
+                    <span className="text-gray-600">{deadline.requirement}</span>
+                    <span className="text-gray-400 ml-2">
+                      {new Date(deadline.dueDate).toLocaleDateString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
   );
-};
-
-export default ComplianceCard;
+}

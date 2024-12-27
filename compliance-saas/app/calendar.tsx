@@ -14,15 +14,12 @@ const events = [
 
 const Calendar = () => {
   return (
-    <div className="container mx-auto px-6 py-8">
-      <h1 className="text-3xl font-bold mb-8">Compliance Calendar</h1>
-      <FullCalendar
-        plugins={[dayGridPlugin]}
-        initialView="dayGridMonth"
-        events={events}
-        eventColor="blue"
-      />
-    </div>
+    <FullCalendar
+      plugins={[dayGridPlugin]}
+      initialView="dayGridMonth"
+      events={events}
+      eventColor="blue"
+    />
   );
 };
 

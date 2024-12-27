@@ -6,6 +6,7 @@ import { Users, Plus, Edit2, Trash2 } from 'lucide-react';
 import AddUserModal from '@/components/modals/AddUserModal';
 import EditUserModal from '@/components/modals/EditUserModal';
 import { toast } from 'sonner';
+import { connectToDatabase, Collections } from '@/lib/db/mongodb';
 
 interface User {
   id: string;
@@ -13,6 +14,43 @@ interface User {
   role: string;
   createdAt: string;
   updatedAt: string;
+}
+
+async function getUsers() {
+  try {
+    const { db } = await connectToDatabase();
+    const users = await db.collection(Collections.USERS)
+      .aggregate([
+        {
+          $lookup: {
+            from: Collections.ORGANIZATIONS,
+            localField: 'organizationId',
+            foreignField: '_id',
+            as: 'organization'
+          }
+        },
+        {
+          $unwind: '$organization'
+        },
+        {
+          $project: {
+            id: '$_id',
+            name: 1,
+            email: 1,
+            role: 1,
+            organization: '$organization.name',
+            createdAt: 1,
+            status: 1
+          }
+        }
+      ])
+      .toArray();
+
+    return users;
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return [];
+  }
 }
 
 export default function UserManagementPage() {
@@ -23,23 +61,21 @@ export default function UserManagementPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch('/api/users');
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch users');
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const users = await getUsers();
+        setUsers(users);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to fetch users');
+        setUsers([]);
+      } finally {
+        setIsLoading(false);
       }
-      const data = await response.json();
-      setUsers(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch users');
-      setUsers([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+    fetchUsers();
+  }, []);
 
   const handleEditUser = (user: User) => {
     setSelectedUser(user);
@@ -52,26 +88,16 @@ export default function UserManagementPage() {
     }
 
     try {
-      const response = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete user');
-      }
-
+      const { db } = await connectToDatabase();
+      await db.collection(Collections.USERS).deleteOne({ _id: userId });
       toast.success('User deleted successfully');
-      fetchUsers();
+      const users = await getUsers();
+      setUsers(users);
     } catch (error) {
       console.error('Error deleting user:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to delete user');
     }
   };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   if (isLoading) {
     return (
@@ -153,7 +179,7 @@ export default function UserManagementPage() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onUserAdded={() => {
-          fetchUsers();
+          getUsers().then(users => setUsers(users));
           setIsAddModalOpen(false);
         }}
       />
@@ -166,7 +192,7 @@ export default function UserManagementPage() {
             setSelectedUser(null);
           }}
           onUserUpdated={() => {
-            fetchUsers();
+            getUsers().then(users => setUsers(users));
             setIsEditModalOpen(false);
             setSelectedUser(null);
           }}

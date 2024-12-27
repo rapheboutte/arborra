@@ -1,0 +1,30 @@
+[
+  {
+    "id": "d3029a92-d41e-4a0e-896f-1a528813af79",
+    "name": "SOC 2",
+    "description": "Service Organization Control 2",
+    "requiredScore": 80,
+    "organizationId": "14585f33-a1b1-4f2b-b5d6-2aeef9c15fa2"
+  },
+  {
+    "id": "5615785f-1b4e-4613-a242-2c8de497fa0f",
+    "name": "HIPAA",
+    "description": "Health Insurance Portability and Accountability Act",
+    "requiredScore": 90,
+    "organizationId": "14585f33-a1b1-4f2b-b5d6-2aeef9c15fa2"
+  },
+  {
+    "id": "90ef7b04-dc3a-43eb-a1d6-485819a5ef86",
+    "name": "ISO 27001",
+    "description": "Information Security Management System Standard",
+    "requiredScore": 85,
+    "organizationId": "14585f33-a1b1-4f2b-b5d6-2aeef9c15fa2"
+  },
+  {
+    "id": "a31d1e97-c625-4231-9865-03efa976e6b2",
+    "name": "GDPR",
+    "description": "General Data Protection Regulation",
+    "requiredScore": 85,
+    "organizationId": "14585f33-a1b1-4f2b-b5d6-2aeef9c15fa2"
+  }
+]

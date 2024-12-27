@@ -30,27 +30,20 @@ export default function LoginPage() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false
-      });
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false
+    });
 
-      if (result?.error) {
-        setError("Invalid email or password");
-        setIsLoading(false);
-        return;
-      }
-
-      if (result?.ok) {
-        router.push("/");
-        router.refresh();
-      }
-    } catch (error) {
-      setError("An error occurred. Please try again.");
+    if (result?.error) {
+      setError("Invalid email or password");
       setIsLoading(false);
+      return;
     }
+
+    router.push("/");
+    router.refresh();
   };
 
   if (status === 'loading' || status === 'authenticated') {
@@ -85,6 +78,7 @@ export default function LoginPage() {
                 required
                 className="mt-1"
                 placeholder="Enter your email"
+                autoComplete="username"
               />
             </div>
             <div>
@@ -96,6 +90,7 @@ export default function LoginPage() {
                 required
                 className="mt-1"
                 placeholder="Enter your password"
+                autoComplete="current-password"
               />
             </div>
           </div>

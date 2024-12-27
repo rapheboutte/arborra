@@ -1,23 +1,23 @@
-"use client";
+import { useSession } from 'next-auth/react';
+import { HeaderMenu } from './HeaderMenu';
 
-import { Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { Input } from "@/components/ui/input";
-
-export const TopBar = () => {
-  const router = useRouter();
+export function TopBar() {
+  const { data: session } = useSession();
 
   return (
-    <div className="h-16 px-4 flex items-center justify-end">
-      <div className="w-72">
-        <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-          <Input
-            placeholder="Search..."
-            className="pl-8 bg-gray-50"
-          />
-        </div>
+    <header className="bg-white border-b border-gray-200 h-16 flex items-center px-6 justify-between">
+      <div className="flex items-center">
+        <span className="text-xl font-semibold">Compliance Management</span>
       </div>
-    </div>
+      <div className="flex items-center space-x-4">
+        {session?.user && (
+          <HeaderMenu
+            name={session.user.name || session.user.email || 'User'}
+            email={session.user.email || ''}
+            image={session.user.image}
+          />
+        )}
+      </div>
+    </header>
   );
-};
+}

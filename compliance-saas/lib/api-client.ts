@@ -1,3 +1,5 @@
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+
 type RequestOptions = {
   method: string;
   url: string;
@@ -8,103 +10,111 @@ type RequestOptions = {
 };
 
 export class ApiClient {
-  private baseUrl: string;
-  private defaultHeaders: Record<string, string>;
+  private client: AxiosInstance;
 
   constructor(baseUrl: string = '') {
-    this.baseUrl = baseUrl;
-    this.defaultHeaders = {
-      'Content-Type': 'application/json',
-    };
+    this.client = axios.create({
+      baseURL: baseUrl,
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Add request interceptor for authentication
+    this.client.interceptors.request.use(
+      (config) => {
+        // Add any auth headers here if needed
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // Add response interceptor for error handling
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response) {
+          // Handle specific error responses
+          switch (error.response.status) {
+            case 401:
+              // Handle unauthorized
+              break;
+            case 403:
+              // Handle forbidden
+              break;
+            case 404:
+              // Handle not found
+              break;
+            case 429:
+              // Handle rate limit
+              break;
+            default:
+              // Handle other errors
+              break;
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
   }
 
-  async request<T>(options: RequestOptions): Promise<{ data: T }> {
-    const url = `${this.baseUrl}${options.url}`;
-    const headers = {
-      ...this.defaultHeaders,
-      ...options.headers,
+  async request<T>(options: RequestOptions): Promise<AxiosResponse<T>> {
+    const config: AxiosRequestConfig = {
+      method: options.method,
+      url: options.url,
+      headers: options.headers,
+      params: options.params,
+      data: options.data,
+      responseType: options.responseType,
     };
 
-    // Build URL with query parameters
-    const queryParams = options.params ? new URLSearchParams(options.params).toString() : '';
-    const fullUrl = `${url}${queryParams ? `?${queryParams}` : ''}`;
-
-    try {
-      const response = await fetch(fullUrl, {
-        method: options.method,
-        headers,
-        body: options.data ? JSON.stringify(options.data) : undefined,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      // Handle blob response type for file downloads
-      if (options.responseType === 'blob') {
-        const blob = await response.blob();
-        return { data: blob as T };
-      }
-
-      const data = await response.json();
-      return { data };
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
+    return this.client.request<T>(config);
   }
 
-  async get<T>(endpoint: string, options?: RequestOptions) {
+  async get<T>(endpoint: string, options?: RequestOptions): Promise<AxiosResponse<T>> {
     return this.request<T>({ method: 'GET', url: endpoint, ...options });
   }
 
-  async post<T>(endpoint: string, data?: any, options?: RequestOptions) {
+  async post<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<AxiosResponse<T>> {
     return this.request<T>({ method: 'POST', url: endpoint, data, ...options });
   }
 
-  async put<T>(endpoint: string, data?: any, options?: RequestOptions) {
+  async put<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<AxiosResponse<T>> {
     return this.request<T>({ method: 'PUT', url: endpoint, data, ...options });
   }
 
-  async patch<T>(endpoint: string, data?: any, options?: RequestOptions) {
+  async patch<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<AxiosResponse<T>> {
     return this.request<T>({ method: 'PATCH', url: endpoint, data, ...options });
   }
 
-  async delete<T>(endpoint: string, options?: RequestOptions) {
+  async delete<T>(endpoint: string, options?: RequestOptions): Promise<AxiosResponse<T>> {
     return this.request<T>({ method: 'DELETE', url: endpoint, ...options });
   }
 
   // Handle form data uploads
-  async uploadFile<T>(endpoint: string, formData: FormData): Promise<{ data: T }> {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-      });
+  async uploadFile<T>(endpoint: string, formData: FormData): Promise<AxiosResponse<T>> {
+    const config: AxiosRequestConfig = {
+      method: 'POST',
+      url: endpoint,
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    };
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const responseData = await response.json();
-      return { data: responseData };
-    } catch (error) {
-      console.error('File upload failed:', error);
-      throw error;
-    }
+    return this.client.request<T>(config);
   }
 
   // Set authorization token
   setAuthToken(token: string) {
-    this.defaultHeaders['Authorization'] = `Bearer ${token}`;
+    this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
   // Clear authorization token
   clearAuthToken() {
-    delete this.defaultHeaders['Authorization'];
+    delete this.client.defaults.headers.common['Authorization'];
   }
 }

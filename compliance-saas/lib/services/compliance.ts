@@ -1,20 +1,56 @@
 import { ComplianceOverview, ComplianceData, ComplianceRequirement, ComplianceDocument } from '@/types/compliance';
 import { ApiClient } from '@/lib/api-client';
+import { connectToDatabase, Collections } from '@/lib/db/mongodb';
+import { getRedisClient, CacheConfig } from '@/lib/cache/redis';
 
 export class ComplianceService {
   private client: ApiClient;
+  private redis;
 
   constructor() {
     this.client = new ApiClient();
+    this.redis = getRedisClient();
   }
 
-  async getComplianceOverview(framework: string): Promise<ComplianceOverview> {
+  private async getCachedData<T>(key: string): Promise<T | null> {
+    const cached = await this.redis.get(key);
+    return cached ? JSON.parse(cached) : null;
+  }
+
+  private async setCachedData(key: string, data: any, ttl: number) {
+    await this.redis.setex(key, ttl, JSON.stringify(data));
+  }
+
+  async getComplianceOverview(orgId: string, framework: string): Promise<ComplianceOverview> {
     try {
+      // Try to get from cache first
+      const cacheKey = CacheConfig.COMPLIANCE_DATA.key(orgId, `${framework}:overview`);
+      const cached = await this.getCachedData<ComplianceOverview>(cacheKey);
+      
+      if (cached) {
+        return cached;
+      }
+
+      // If not in cache, fetch from API
       const response = await this.client.request<ComplianceOverview>({
         method: 'GET',
         url: '/api/compliance',
         params: { framework },
       });
+
+      // Store in MongoDB for historical tracking
+      const { db } = await connectToDatabase();
+      await db.collection(Collections.COMPLIANCE_DATA).insertOne({
+        orgId,
+        framework,
+        type: 'overview',
+        data: response.data,
+        timestamp: new Date()
+      });
+
+      // Cache the response
+      await this.setCachedData(cacheKey, response.data, CacheConfig.COMPLIANCE_DATA.ttl);
+
       return response.data;
     } catch (error) {
       console.error('Error fetching compliance overview:', error);
@@ -22,13 +58,36 @@ export class ComplianceService {
     }
   }
 
-  async getFrameworkCompliance(framework: string): Promise<ComplianceData> {
+  async getFrameworkCompliance(orgId: string, framework: string): Promise<ComplianceData> {
     try {
+      // Try cache first
+      const cacheKey = CacheConfig.COMPLIANCE_DATA.key(orgId, framework);
+      const cached = await this.getCachedData<ComplianceData>(cacheKey);
+      
+      if (cached) {
+        return cached;
+      }
+
+      // Fetch from API
       const response = await this.client.request<ComplianceData>({
         method: 'GET',
         url: '/api/compliance',
         params: { framework },
       });
+
+      // Store in MongoDB
+      const { db } = await connectToDatabase();
+      await db.collection(Collections.COMPLIANCE_DATA).insertOne({
+        orgId,
+        framework,
+        type: 'full',
+        data: response.data,
+        timestamp: new Date()
+      });
+
+      // Cache the response
+      await this.setCachedData(cacheKey, response.data, CacheConfig.COMPLIANCE_DATA.ttl);
+
       return response.data;
     } catch (error) {
       console.error(`Error fetching ${framework} compliance data:`, error);
@@ -37,6 +96,7 @@ export class ComplianceService {
   }
 
   async updateRequirementStatus(
+    orgId: string,
     framework: string,
     requirementId: string,
     status: string,
@@ -46,14 +106,50 @@ export class ComplianceService {
       const response = await this.client.request({
         method: 'PATCH',
         url: `/api/compliance/${framework}/requirements/${requirementId}`,
-        data: {
-          status,
-          notes,
-        },
+        data: { status, notes },
       });
+
+      // Invalidate relevant caches
+      await this.redis.del(
+        CacheConfig.COMPLIANCE_DATA.key(orgId, framework),
+        CacheConfig.COMPLIANCE_DATA.key(orgId, `${framework}:overview`)
+      );
+
+      // Store the update in MongoDB
+      const { db } = await connectToDatabase();
+      await db.collection(Collections.COMPLIANCE_DATA).insertOne({
+        orgId,
+        framework,
+        type: 'requirement_update',
+        requirementId,
+        status,
+        notes,
+        timestamp: new Date()
+      });
+
       return response.data;
     } catch (error) {
       console.error('Error updating requirement status:', error);
+      throw error;
+    }
+  }
+
+  async getComplianceHistory(orgId: string, framework: string, days: number = 30) {
+    try {
+      const { db } = await connectToDatabase();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      return await db.collection(Collections.COMPLIANCE_DATA)
+        .find({
+          orgId,
+          framework,
+          timestamp: { $gte: startDate }
+        })
+        .sort({ timestamp: -1 })
+        .toArray();
+    } catch (error) {
+      console.error('Error fetching compliance history:', error);
       throw error;
     }
   }

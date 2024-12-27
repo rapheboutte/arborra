@@ -76,7 +76,7 @@ const ComplianceModal = ({ isOpen, onClose, framework, data }: ComplianceModalPr
                 <CardContent>
                   <div className="text-3xl font-bold">{data.complianceScore}%</div>
                   <p className="text-sm text-gray-500 mt-2">
-                    Based on {data.requirements.length} requirements
+                    Based on {data.requirements?.length || 0} requirements
                   </p>
                 </CardContent>
               </Card>
@@ -87,7 +87,7 @@ const ComplianceModal = ({ isOpen, onClose, framework, data }: ComplianceModalPr
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {data.recentUpdates.map((update, index) => (
+                    {data.recentUpdates?.map((update, index) => (
                       <div key={index} className="flex items-start space-x-4">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">
@@ -108,17 +108,17 @@ const ComplianceModal = ({ isOpen, onClose, framework, data }: ComplianceModalPr
 
           <TabsContent value="requirements">
             <div className="space-y-4">
-              {data.requirements.map((req) => (
-                <Card key={req.id}>
+              {data.requirements?.map((req, index) => (
+                <Card key={index}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{req.title}</CardTitle>
-                      <div className="space-x-2">
-                        <Badge className={getStatusColor(req.status)}>
-                          {req.status.replace('_', ' ')}
-                        </Badge>
+                      <CardTitle className="text-base">{req.title}</CardTitle>
+                      <div className="flex space-x-2">
                         <Badge className={getPriorityColor(req.priority)}>
                           {req.priority}
+                        </Badge>
+                        <Badge className={getStatusColor(req.status)}>
+                          {req.status}
                         </Badge>
                       </div>
                     </div>
@@ -127,17 +127,9 @@ const ComplianceModal = ({ isOpen, onClose, framework, data }: ComplianceModalPr
                     <p className="text-sm text-gray-500">{req.description}</p>
                     {req.dueDate && (
                       <p className="text-sm text-gray-500 mt-2">
-                        Due: {new Date(req.dueDate).toLocaleDateString()}
+                        Due by: {new Date(req.dueDate).toLocaleDateString()}
                       </p>
                     )}
-                    <div className="mt-4 flex items-center space-x-4">
-                      <Button variant="outline" size="sm">
-                        View Tasks ({req.tasks?.length || 0})
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        View Documents ({req.documents?.length || 0})
-                      </Button>
-                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -146,27 +138,27 @@ const ComplianceModal = ({ isOpen, onClose, framework, data }: ComplianceModalPr
 
           <TabsContent value="documents">
             <div className="space-y-4">
-              {data.documents.map((doc) => (
-                <Card key={doc.id}>
+              {data.documents?.map((doc, index) => (
+                <Card key={index}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{doc.title}</CardTitle>
-                      <Badge>{doc.fileType}</Badge>
+                      <CardTitle className="text-base">{doc.title}</CardTitle>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                          View Document
+                        </a>
+                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-500">{doc.description}</p>
-                    <div className="mt-2 text-sm text-gray-500">
-                      Uploaded by {doc.uploadedBy} on{' '}
-                      {new Date(doc.uploadedAt).toLocaleDateString()}
-                    </div>
-                    <div className="mt-4 flex items-center space-x-4">
-                      <Button variant="outline" size="sm">
-                        Download
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        View Requirements ({doc.requirements?.length || 0})
-                      </Button>
+                    <div className="flex items-center space-x-4 mt-2">
+                      <p className="text-sm text-gray-500">
+                        Uploaded by: {doc.uploadedBy}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(doc.uploadedAt).toLocaleDateString()}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

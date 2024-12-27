@@ -1,45 +1,54 @@
-'use client';
+import { signOut } from 'next-auth/react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-import { useState } from 'react';
-import ProfileMenu from '@/components/ui/ProfileMenu';
+interface HeaderMenuProps {
+  name: string;
+  email: string;
+  image?: string | null;
+}
 
-export function HeaderMenu() {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: 'GDPR Compliance Update Required',
-      description: 'New requirements need review',
-      time: '5m ago',
-      unread: true
-    },
-    {
-      id: 2,
-      title: 'Task Deadline Approaching',
-      description: 'Privacy policy update due in 2 days',
-      time: '1h ago',
-      unread: true
-    }
-  ]);
-
-  const handleNotificationClick = (notification) => {
-    setNotifications(prev =>
-      prev.map(n =>
-        n.id === notification.id
-          ? { ...n, unread: false }
-          : n
-      )
-    );
-  };
-
-  const unreadCount = notifications.filter(n => n.unread).length;
+export function HeaderMenu({ name, email, image }: HeaderMenuProps) {
+  const initials = name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
 
   return (
-    <div className="h-16 px-4 flex items-center justify-end border-b border-gray-200 bg-white fixed top-0 right-0 left-[240px] z-40">
-      <ProfileMenu
-        notificationCount={unreadCount}
-        notifications={notifications}
-        onNotificationClick={handleNotificationClick}
-      />
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex items-center space-x-3 focus:outline-none">
+        <div className="flex items-center space-x-3">
+          <Avatar>
+            <AvatarImage src={image || undefined} />
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+          <div className="text-sm text-right">
+            <p className="font-medium">{name}</p>
+            <p className="text-gray-500">{email}</p>
+          </div>
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>Profile</DropdownMenuItem>
+        <DropdownMenuItem>Settings</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-red-600 focus:text-red-600"
+          onClick={() => signOut()}
+        >
+          Sign Out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

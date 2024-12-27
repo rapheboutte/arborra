@@ -1,25 +1,37 @@
-import "./globals.css";
-import { Inter } from "next/font/google";
-import { Providers } from "./providers";
-import { RootLayout } from "@/components/RootLayout";
-import { Toaster } from '@/components/ui/toaster';
+import './globals.css';
+import { Inter } from 'next/font/google';
+import { Providers } from './providers';
+import { DatabaseInitializer } from '@/components/DatabaseInitializer';
+import { Metadata } from 'next';
+import { Navigation } from '@/components/ui/navigation';
+import { TopBar } from '@/components/ui/TopBar';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
-export const metadata = {
-  title: "Arborra",
-  description: "Compliance Management Platform",
+export const metadata: Metadata = {
+  title: 'Compliance Management',
+  description: 'Enterprise compliance management solution',
 };
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
-          <RootLayout>
-            {children}
-            <Toaster />
-          </RootLayout>
+          <DatabaseInitializer />
+          <div className="flex min-h-screen bg-gray-50">
+            <Navigation />
+            <div className="flex-1">
+              <TopBar />
+              <main className="p-6">
+                {children}
+              </main>
+            </div>
+          </div>
         </Providers>
       </body>
     </html>

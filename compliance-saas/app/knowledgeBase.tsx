@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 
 const knowledgeBaseData = [
@@ -49,12 +51,23 @@ const KnowledgeBase = () => {
       </div>
       <ul className="space-y-4">
         {filteredData.map((item, index) => (
-          <li key={index} className="border p-4 rounded">
-            <h2 className="text-xl font-semibold">{item.title}</h2>
-            <p>{item.content}</p>
-            <div className="flex space-x-4 mt-2">
-              <video src={item.video} controls className="w-1/3" />
-              <img src={item.infographic} alt={item.title} className="w-1/3" />
+          <li key={index} className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl font-semibold mb-2">{item.title}</h2>
+            <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm mb-4">
+              {item.framework}
+            </span>
+            <p className="text-gray-600 mb-4">{item.content}</p>
+            <div className="flex space-x-4">
+              {item.video && (
+                <button className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark">
+                  Watch Video
+                </button>
+              )}
+              {item.infographic && (
+                <button className="bg-secondary text-white px-4 py-2 rounded hover:bg-secondary-dark">
+                  View Infographic
+                </button>
+              )}
             </div>
           </li>
         ))}

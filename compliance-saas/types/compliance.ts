@@ -109,3 +109,55 @@ export interface DocumentAnalysisRequest {
     documentType?: string;
   };
 }
+
+export interface ComplianceHistoryEntry {
+  orgId: string;
+  framework: string;
+  type: 'overview' | 'full' | 'requirement_update';
+  data: ComplianceData | ComplianceOverview;
+  timestamp: Date;
+  requirementId?: string;
+  status?: string;
+  notes?: string;
+}
+
+export interface ComplianceOverview {
+  framework: string;
+  complianceScore: number;
+  status: 'active' | 'inactive';
+  lastUpdated: string;
+  totalRequirements: number;
+  completedRequirements: number;
+  criticalFindings: number;
+  upcomingDeadlines: {
+    requirement: string;
+    dueDate: string;
+  }[];
+  recentUpdates: ComplianceUpdate[];
+}
+
+export interface ComplianceTrend {
+  date: string;
+  score: number;
+  requirements: {
+    total: number;
+    completed: number;
+    inProgress: number;
+    notStarted: number;
+  };
+}
+
+export interface ComplianceAnalytics {
+  trends: ComplianceTrend[];
+  riskAreas: {
+    category: string;
+    score: number;
+    requirements: string[];
+  }[];
+  improvements: {
+    requirement: string;
+    impact: number;
+    effort: 'low' | 'medium' | 'high';
+    recommendation: string;
+  }[];
+}
