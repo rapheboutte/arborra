@@ -20,13 +20,12 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const session = await getServerSession(authOptions);
-  const isAuthPage = children.toString().includes("auth/login") || children.toString().includes("auth/error");
-
+  
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SessionProvider>
-          <ClientRootLayout isAuthPage={isAuthPage}>
+        <SessionProvider session={session}>
+          <ClientRootLayout>
             <Toaster position="top-right" />
             {children}
           </ClientRootLayout>

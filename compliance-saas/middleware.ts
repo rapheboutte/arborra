@@ -5,23 +5,10 @@ export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
     const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
-    
-    // If the user is authenticated and trying to access auth pages, redirect to home
+
+    // Redirect authenticated users away from auth pages
     if (token && isAuthPage) {
       return NextResponse.redirect(new URL("/", req.url));
-    }
-    
-    // Protect admin routes
-    if (req.nextUrl.pathname.startsWith("/admin") && token?.role !== "admin") {
-      return new NextResponse("Unauthorized", { status: 403 });
-    }
-
-    // Protect organization-specific routes
-    if (req.nextUrl.pathname.startsWith("/api/organizations")) {
-      const urlOrgId = req.nextUrl.pathname.split("/")[3];
-      if (urlOrgId && urlOrgId !== token?.organizationId) {
-        return new NextResponse("Unauthorized", { status: 403 });
-      }
     }
 
     return NextResponse.next();
@@ -29,26 +16,36 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ req, token }) => {
-        // Allow access to auth pages without token
-        if (req.nextUrl.pathname.startsWith("/auth")) {
+        const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
+        const isPublicPage = ["/"].includes(req.nextUrl.pathname);
+
+        // Always allow access to auth pages
+        if (isAuthPage) {
           return true;
         }
+
+        // Allow access to public pages
+        if (isPublicPage) {
+          return true;
+        }
+
         // Require token for all other pages
         return !!token;
-      }
-    }
+      },
+    },
   }
 );
 
 export const config = {
   matcher: [
-    "/",
-    "/admin/:path*",
-    "/api/organizations/:path*",
-    "/api/settings/:path*",
-    "/api/users/:path*",
-    "/api/tasks/:path*",
-    "/api/documents/:path*",
-    "/auth/:path*"
-  ]
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api/auth (authentication routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|public).*)",
+  ],
 };

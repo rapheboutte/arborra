@@ -9,266 +9,192 @@ import { DashboardSkeleton } from '@/components/loading-states';
 import { ComplianceService } from '@/lib/services/compliance';
 import { mockComplianceData } from '@/lib/mocks/gdpr';
 import { Info, TrendingUp, TrendingDown } from 'lucide-react';
-import { Tooltip } from '@/components/ui/tooltip';
-import ComplianceModal from '@/components/ui/ComplianceModal';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipProvider } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProtectedComponent } from "@/components/auth/ProtectedComponent";
-import { Permissions } from "@/lib/auth";
 import { useSession } from "next-auth/react";
-
-const initialData = {
-  companyName: "Jane's Retail Store",
-  complianceScore: 0,
-  regulations: []
-};
-
-interface DashboardData {
-  companyName: string;
-  complianceScore: number;
-  regulations: Array<{
-    name: string;
-    progress: number;
-  }>;
-}
+import { generatePDFReport } from '@/lib/generateReport'; // Import the new PDF generator
 
 const ComplianceCard = ({ framework, data, onViewDetails }) => {
-  const getStatusClass = (score: number) => {
+  const getStatusClass = (score) => {
     if (score >= 80) return 'bg-green-100 text-green-800';
     if (score >= 60) return 'bg-yellow-100 text-yellow-800';
     return 'bg-red-100 text-red-800';
   };
 
-  const getProgressClass = (score: number) => {
-    if (score >= 80) return 'bg-green-500';
-    if (score >= 60) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getStatusText = (score: number) => {
+  const getStatusText = (score) => {
     if (score >= 80) return 'Compliant';
     if (score >= 60) return 'Partially Compliant';
     return 'Non-Compliant';
   };
 
-  const trend = {
-    direction: framework === 'GDPR' ? 'up' : framework === 'HIPAA' ? 'down' : 'up',
-    change: framework === 'GDPR' ? 3 : framework === 'HIPAA' ? 2 : 1
+  const getInfoText = (framework) => {
+    const info = {
+      GDPR: "General Data Protection Regulation - EU data protection and privacy law",
+      HIPAA: "Health Insurance Portability and Accountability Act - US healthcare data privacy",
+      CCPA: "California Consumer Privacy Act - California data privacy law",
+      SOX: "Sarbanes-Oxley Act - US corporate financial reporting and governance",
+      OSHA: "Occupational Safety and Health Act - US workplace safety standards"
+    };
+    return info[framework] || "Compliance framework information";
+  };
+
+  const getTrendIcon = (trend) => {
+    if (trend > 0) return <TrendingUp className="h-4 w-4 text-green-500" />;
+    if (trend < 0) return <TrendingDown className="h-4 w-4 text-red-500" />;
+    return null;
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">{framework} Compliance Status</h3>
-        <Tooltip>
-          <Info className="w-4 h-4 text-gray-400" />
-        </Tooltip>
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Status</span>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(data.complianceScore)}`}>
-            {getStatusText(data.complianceScore)}
-          </span>
-        </div>
-
-        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-          <div
-            className={`h-full transition-all duration-500 ease-out ${getProgressClass(data.complianceScore)}`}
-            style={{ width: `${data.complianceScore}%` }}
-          />
-        </div>
-
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">
-            Current Score: {data.complianceScore}%
-          </span>
-          <div className={`flex items-center gap-1 ${trend.direction === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-            {trend.direction === 'up' ? (
-              <TrendingUp className="w-4 h-4" />
-            ) : (
-              <TrendingDown className="w-4 h-4" />
-            )}
-            <span>{trend.change}%</span>
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium flex items-center">
+          {framework} Compliance Status
+          <TooltipProvider>
+            <Tooltip content={getInfoText(framework)}>
+              <Button variant="ghost" size="icon" className="ml-1 h-4 w-4 hover:bg-transparent">
+                <Info className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+          </TooltipProvider>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="mt-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium">Status</div>
+            <div className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClass(data.score)}`}>
+              {getStatusText(data.score)}
+            </div>
           </div>
+          <div className="mt-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">Current Score: {data.score}%</div>
+              <div className="flex items-center text-xs">
+                {data.trend}%
+                {getTrendIcon(data.trend)}
+              </div>
+            </div>
+            <div className="mt-2">
+              <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full"
+                  style={{ width: `${data.score}%` }}
+                />
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            className="w-full mt-4"
+            onClick={onViewDetails}
+          >
+            View Details
+          </Button>
         </div>
-
-        <Button
-          onClick={onViewDetails}
-          variant="outline"
-          className="w-full mt-2"
-        >
-          View Details
-        </Button>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 
 const Dashboard = () => {
   const router = useRouter();
-  const complianceService = useMemo(() => new ComplianceService(), []);
-  const [data, setData] = useState<DashboardData>(initialData);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalTitle, setModalTitle] = useState('');
-  const [complianceData, setComplianceData] = useState(mockComplianceData);
-  const [selectedFramework, setSelectedFramework] = useState<string | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [companyName, setCompanyName] = useState("Jane's Retail Store");
-  const [companyEmail, setCompanyEmail] = useState("jane@retailstore.com");
-  const [companySize, setCompanySize] = useState("50-100");
+  const [isGenerating, setIsGenerating] = useState(false);
   const { data: session } = useSession();
 
-  const fetchComplianceData = useCallback(async () => {
+  const handleGenerateReport = async () => {
+    setIsGenerating(true);
     try {
-      setLoading(true);
-      setError(null);
-      const overview = await complianceService.getComplianceOverview();
-      setComplianceData(overview);
-      setData(prev => ({
-        ...prev,
-        complianceScore: Object.values(overview).reduce((acc, curr) => acc + curr.complianceScore, 0) / Object.keys(overview).length,
-        regulations: Object.entries(overview).map(([framework, data]) => ({
-          name: framework.toUpperCase(),
-          progress: data.complianceScore
-        }))
-      }));
-    } catch (err) {
-      console.error('Error loading compliance data:', err);
-      setError(err instanceof Error ? err : new Error('Failed to load compliance data'));
-      setComplianceData(mockComplianceData);
+      // Generate report data
+      const reportData = {
+        date: new Date().toISOString(),
+        company: "Jane's Retail Store",
+        frameworks: {
+          GDPR: { score: 71, status: "Partially Compliant" },
+          HIPAA: { score: 96, status: "Compliant" },
+          CCPA: { score: 82, status: "Compliant" },
+          SOX: { score: 73, status: "Partially Compliant" },
+          OSHA: { score: 77, status: "Partially Compliant" }
+        }
+      };
+
+      // Generate PDF
+      const pdfBlob = await generatePDFReport(reportData);
+      
+      // Download the PDF
+      const url = window.URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `compliance-report-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error generating report:', error);
     } finally {
-      setLoading(false);
+      setIsGenerating(false);
     }
-  }, [complianceService]);
+  };
 
-  const handleViewDetails = useCallback((framework: string) => {
-    setSelectedFramework(framework);
-    setModalTitle(`${framework.toUpperCase()} Compliance Details`);
-    setModalOpen(true);
-  }, []);
-
-  useEffect(() => {
-    fetchComplianceData();
-  }, [fetchComplianceData]);
+  const complianceData = {
+    GDPR: { score: 71, trend: 3 },
+    HIPAA: { score: 96, trend: -2 },
+    CCPA: { score: 82, trend: 1 },
+    SOX: { score: 73, trend: 1 },
+    OSHA: { score: 77, trend: 1 }
+  };
 
   return (
-    <ErrorBoundary>
-      <div className="p-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Welcome, {companyName}</h1>
-          <div className="mt-4 flex space-x-2">
-            <ProtectedComponent requiredPermission={Permissions.MANAGE_SETTINGS}>
-              <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">Settings</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[475px]">
-                  <DialogHeader>
-                    <DialogTitle>Company Settings</DialogTitle>
-                    <DialogDescription>
-                      Update your company information and preferences.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="company-name">Company Name</Label>
-                      <Input
-                        id="company-name"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="company-email">Company Email</Label>
-                      <Input
-                        id="company-email"
-                        type="email"
-                        value={companyEmail}
-                        onChange={(e) => setCompanyEmail(e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="company-size">Company Size</Label>
-                      <Input
-                        id="company-size"
-                        value={companySize}
-                        onChange={(e) => setCompanySize(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsSettingsOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={() => setIsSettingsOpen(false)}>
-                      Save Changes
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </ProtectedComponent>
-            <Button>Generate Report</Button>
-          </div>
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Welcome, Jane's Retail Store</h2>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/settings')}
+          >
+            Settings
+          </Button>
+          <Button
+            onClick={handleGenerateReport}
+            disabled={isGenerating}
+          >
+            {isGenerating ? 'Generating...' : 'Generate Report'}
+          </Button>
         </div>
-
-        {loading ? (
-          <DashboardSkeleton />
-        ) : error ? (
-          <div className="bg-red-50 p-4 rounded-lg">
-            <h3 className="text-red-800 font-medium">Error Loading Dashboard</h3>
-            <p className="text-red-700 mt-1">{error.message}</p>
-            <Button 
-              onClick={() => fetchComplianceData()}
-              variant="destructive"
-              className="mt-4"
-            >
-              Retry
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {Object.entries(complianceData).map(([framework, data]) => (
-              <ComplianceCard
-                key={framework}
-                framework={framework.toUpperCase()}
-                data={data}
-                onViewDetails={() => handleViewDetails(framework)}
-              />
-            ))}
-          </div>
-        )}
-
-        {selectedFramework && (
-          <ComplianceModal 
-            open={modalOpen} 
-            onClose={() => setModalOpen(false)} 
-            title={modalTitle}
-            framework={selectedFramework}
-            data={complianceData[selectedFramework]}
-          />
-        )}
       </div>
-    </ErrorBoundary>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {Object.entries(complianceData).map(([framework, data]) => (
+          <ComplianceCard
+            key={framework}
+            framework={framework}
+            data={data}
+            onViewDetails={() => router.push(`/compliance/${framework.toLowerCase()}`)}
+          />
+        ))}
+      </div>
+    </div>
   );
 };
 
 export default function Page() {
-  return (
-    <Dashboard />
-  );
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/login');
+    }
+  }, [status, router]);
+
+  if (status === 'loading') {
+    return <DashboardSkeleton />;
+  }
+
+  if (!session) {
+    return null;
+  }
+
+  return <Dashboard />;
 }
